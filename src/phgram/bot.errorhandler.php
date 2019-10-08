@@ -6,6 +6,7 @@ class BotErrorHandler {
 	private static $first_admin;
 	public static $data = [];
 	public static $show_data;
+	public static $verbose = false;
 	
 	public static function register($error_bot, $error_admin, $show_data = true) {
 		self::$bot = self::$first_bot = $error_bot;

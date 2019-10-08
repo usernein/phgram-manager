@@ -100,8 +100,10 @@ function handle($bot, $db, $lang, $args) {
 			$lines = [
 				[ ['⏬', "download {$file}"], ['🗑', "delete {$file}"] ]
 			];
-			if ($mime1 == 'video') {
-				$lines[] = [ ['⏬', "download_vid {$file}"] ];
+			if ($mime1 == 'video' && @exec('echo a') === 'a') { # if the file is a file and shell_exec is supported
+				$lines[] = [ ['⏬🎞 (streaming)', "download_vid {$file}"] ];
+			} else if ($mime1 == 'image') {
+				$lines[] = [ ['⏬🖼', "download_img {$file}"] ];
 			}
 			$lines[] = [ ['«', "list {$dir}"] ];
 			$keyb = ikb($lines);
@@ -118,7 +120,7 @@ function handle($bot, $db, $lang, $args) {
 		
 		else if (preg_match('#^download_vid (?<path>.+)#', $call, $match)) {
 			$mp = new MPSend($bot->bot_token);
-			$res = $mp->vid($match['path']);
+			$res = $mp->img($match['path']);
 			if (!$res['ok']) {
 				$bot->answerCallbackQuery(['callback_query_id' => $call_id, 'text' => $res->err->getMessage(), 'show_alert' => TRUE]);
 			}

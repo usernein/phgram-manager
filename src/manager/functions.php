@@ -132,17 +132,22 @@ function get_perms($file) {
 	return $info;
 }
 function mp($token = null) {
-	global $mp;
-	if (!file_exists('madeline/madeline.php')) {
-		if (!file_exists('madeline')) {
-			mkdir('madeline');
-		} else if (!is_dir('madeline')) {
-			copy('madeline', 'old_madeline');
-			mkdir('madeline');
-		}
-		copy('https://phar.madelineproto.xyz/madeline.php', 'madeline/madeline.php');
+	global $mp, $bot;
+	@$bot->send('Installing MadelineProto... (should happen only now)');
+	if (!is_dir('manager')) {
+		if (file_exists('manager')) rename('manager', 'old_manager');
+		mkdir('manager');
 	}
-	include_once 'madeline/madeline.php';
+	if (!file_exists('manager/madeline/madeline.php')) {
+		if (!file_exists('manager/madeline')) {
+			mkdir('manager/madeline');
+		} else if (!is_dir('manager/madeline')) {
+			rename('manager/madeline', 'manager/old_madeline');
+			mkdir('manager/madeline');
+		}
+		copy('https://phar.madelineproto.xyz/madeline.php', 'manager/madeline/madeline.php');
+	}
+	include_once 'manager/madeline/madeline.php';
 	$settings = [
 		'app_info' => ['api_id' => 163474, 'api_hash' => 'ce8d0741f0cb0c8558e98334109126b4'],
 		'logger'	=> ['logger' => 2, 'logger_param' => 'madeline/bot.log', 'logger_level' => \danog\MadelineProto\Logger::ULTRA_VERBOSE]
@@ -152,7 +157,7 @@ function mp($token = null) {
 	
 	if (!$is_logged) { #|| $mp->get_self()['id'] != json_decode(file_get_contents("https://api.telegram.org/bot{$token}/getMe"))->result->id) {
 		if (!$token)
-			throw new Error("The token passed to mp() is invalid");
+			trigger_error("The token passed to mp() is invalid");
 		$mp->bot_login($token);
 	}
 	return $mp;
@@ -221,6 +226,60 @@ class MPSend {
 		return ['ok' => true, 'duration' => ($end-$start)];
 	}
 	
+	public function img($path, $params = []) {
+		$caption = '';
+		extract($params);
+		global $bot;
+		$chat_id = $bot->ChatID() ?? $bot->UserID();
+		
+		$name = basename($path);
+		$filesize = filesize($path);
+		$size = format_size($filesize);
+		
+		$msg_text = "Uploading <i>{$name}</i> ({$size})...";
+		if (isset($postname)) {
+			$realname = $name;
+			$name = $postname;
+			$msg_text = "Uploading <i>{$realname}</i> ({$size}) as <i>{$name}</i>...";
+		}
+		$msg = $bot->send($msg_text);
+		$start_time = microtime(1);
+		$progress = function ($progress) use ($name, $msg_text, $msg, $size, $start_time, $filesize) {
+			static $last_time = 0;
+			if ((microtime(true) - $last_time) < 1) return;
+			$uploaded = ($filesize/100)*$progress;
+			$speed = $uploaded/(microtime(1) - $start_time); # bytes per second
+			$speed = format_size($speed).'/s';
+			$round = round($progress, 2);
+			$msg->edit("{$msg_text} {$round}%\n\nSpeed: {$speed}");
+			$last_time = microtime(true);
+		};
+		try {
+			$this->mp->messages->setTyping([
+				'peer' => $chat_id,
+				'action' => ['_' => 'sendMessageUploadDocumentAction', 'progress' => 0],
+			]);
+			
+			$start = microtime(1);
+			$sentMessage = $this->mp->messages->sendMedia([
+				'peer' => $chat_id,
+				'media' => [
+					'_' => 'inputMediaUploadedPhoto',
+					'file' => new danog\MadelineProto\FileCallback($path, $progress),
+				],
+				'message' => $caption,
+				'parse_mode' => 'HTML'
+			]);
+			$end = microtime(1);
+		} catch (Throwable $t) {
+			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
+			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			return ['ok' => false, 'err' => $t];
+		}
+		$msg->delete();
+		return ['ok' => true, 'duration' => ($end-$start)];
+	}
+	
 	public function vid($path, $params = []) {
 		$caption = '';
 		extract($params);
@@ -255,22 +314,17 @@ class MPSend {
 				'action' => ['_' => 'sendMessageUploadDocumentAction', 'progress' => 0],
 			]);
 			
-			if (!file_exists('ffmpeg.phar')) {
-				copy('ffmpeg.phar', 'ffmpeg.phar');
+			if (!file_exists('manager/FFMPEG.php')) {
+				copy('https://raw.githubusercontent.com/dmongeau/FFMPEG/master/FFMPEG.php', 'manager/FFMPEG.php');
 			}
-			require_once 'ffmpeg.phar';
-			$ffprobe = FFMpeg\FFProbe::create();
-			$duration = $ffprobe
-				->format($path) // extracts file informations
-				->get('duration');             // returns the duration property
-				
+			require_once 'manager/FFMPEG.php';
+			$ffmpeg = new FFMPEG($path);
+			$metadata = $ffmpeg->getMetadata();
+			$duration = $metadata['duration'];
 			$sec = round($duration/4);
-			
-			$thumbnail = $path.time().'.png';
-			$ffmpeg = FFMpeg\FFMpeg::create();
-			$video = $ffmpeg->open($path);
-			$frame = $video->frame(FFMpeg\Coordinate\TimeCode::fromSeconds($sec));
-			$frame->save($thumbnail);
+			//$thumb = calc_thumb_size($metadata['width'], $metadata['height'], $metadata['width']/2, '*');
+			//extract($thumb);
+			$ffmpeg->getThumbnail($thumbnail, $sec);
 			
 			$start = microtime(1);
 			$sentMessage = $this->mp->messages->sendMedia([
@@ -492,4 +546,22 @@ function convert_time($time) {
 		}
 	}
 	return $t.$unit[$i];
+}
+function calc_thumb_size($source_width, $source_height, $thumb_width, $thumb_height) {
+	if ($thumb_width === "*" && $thumb_height === "*") {
+		trigger_error("Both values must not be a wildcard");
+		return false;
+	}
+	
+	if ($thumb_width === "*") {
+		$thumb_width = ceil($thumb_height * $source_width / $source_height);
+	} else if ($thumb_height === "*") {
+		$thumb_height = ceil($thumb_width * $source_height / $source_width);
+	} else if (($source_width / $source_height) < ($thumb_width / $thumb_height)) {
+		$thumb_width = ceil($thumb_height * $source_width / $source_height);
+	} else if (($source_width / $source_height) > ($thumb_width / $thumb_height)) {
+		$thumb_height = ceil($thumb_width * $source_height / $source_width);
+	}
+	
+	return compact('thumb_width', 'thumb_height');
 }
