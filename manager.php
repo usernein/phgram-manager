@@ -2498,7 +2498,7 @@ $changes", ['reply_markup' => $keyboard]);
 					#fpc = use file_put_contents
 					$fpc = true;
 				} else {
-					$bot->send('Reply to a document or a text.');
+					$bot->send('Reply to a media or a text.');
 					exit;
 				}
 			} else if (!$file_id) {
@@ -2512,7 +2512,7 @@ $changes", ['reply_markup' => $keyboard]);
 					#fpc = use file_put_contents
 					$fpc = true;
 				} else {
-					$bot->send('Reply to a document or a text.');
+					$bot->send('Reply to a media or a text.');
 					exit();
 				}
 			} else if ($file_id) {
@@ -2529,7 +2529,7 @@ $changes", ['reply_markup' => $keyboard]);
 				#fpc = use file_put_contents
 				$fpc = false;
 			} else {
-				$bot->send('Reply to a document or a text.');
+				$bot->send('Reply to a media or a text.');
 				exit();
 			}
 				
