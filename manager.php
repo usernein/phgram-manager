@@ -271,31 +271,20 @@ class Bot {
 			var_dump($value);
 			$text = ob_get_contents();
 			ob_end_clean();
+			
+			$text = $text ?? print_r($value, 1) ?? 'undefined';
 		}
 		$params = ['parse_mode' => $parse_mode, 'disable_web_page_preview' => TRUE, 'text' => $text];
 		
 		if (mb_strlen($text) > 4096) {
-			$name = 'log_'.$this->UpdateID().'.txt';
-		
-			$file_exists = file_exists($name);
-			$contents = ($file_exists? file_get_contents($name) : 0);
+			$name = 'phlog_'.$this->UpdateID().'.txt';
 			
 			file_put_contents($name, $text);
 			
 			$url = "https://api.telegram.org/bot{$this->bot_token}/sendDocument";
 			$params = [];
 			$document = curl_file_create(realpath($name));
-			if (file_exists(realpath($name)) && !is_dir(realpath($name))) {
-				$params['document'] = $document;
-			} else {
-				$params['document'] = $name;
-			}
-			
-			if ($file_exists) {
-				file_put_contents($name, $contents);
-			} else {
-				#unlink($name);
-			}
+			$params['document'] = $document;
 		}
 		
 		if (is_array($this->debug_admin)) {
@@ -305,7 +294,9 @@ class Bot {
 			}
 		} else {
 			$params['chat_id'] = $this->debug_admin;
-			$this->sendAPIRequest($url, $params);
+			$res = $this->sendAPIRequest($url, $params);
+			if (!json_decode($res)->ok)
+				file_put_contents('phlog_error', $text."\n\n".$res);
 		}
 		
 		return $value;
@@ -1632,12 +1623,16 @@ function get_perms($file) {
 }
 function mp($token = null) {
 	global $mp, $bot;
-	@$bot->send('Installing MadelineProto... (should happen only now)');
 	if (!is_dir('manager')) {
 		if (file_exists('manager')) rename('manager', 'old_manager');
 		mkdir('manager');
 	}
-	if (!file_exists('manager/madeline/madeline.php')) {
+	$mphp_exists = file_exists('manager/madeline/madeline.php');
+	$mphar_exists = file_exists('manager/madeline/madeline.phar');
+	if (!$mphp_exists || !$mphar_exists)
+		@$bot->send('Installing MadelineProto... (should happen only now)');
+	
+	if (!$mphp_exists) {
 		if (!file_exists('manager/madeline')) {
 			mkdir('manager/madeline');
 		} else if (!is_dir('manager/madeline')) {
@@ -1646,13 +1641,18 @@ function mp($token = null) {
 		}
 		copy('https://phar.madelineproto.xyz/madeline.php', 'manager/madeline/madeline.php');
 	}
+	if (!file_exists('manager/madeline/settings.ini')) {
+		copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/requirements/madeline.settings.ini', 'manager/madeline/settings.ini');
+	}
+	# correcting madeline.phar path
+	$contents = file_get_contents('manager/madeline/madeline.php');
+	$contents = preg_replace('#(?<!manager/madeline/)madeline.phar#', 'manager/madeline/madeline.phar', $contents);
+	file_put_contents('manager/madeline/madeline.php', $contents);
+	
 	include_once 'manager/madeline/madeline.php';
-	$settings = [
-		'app_info' => ['api_id' => 163474, 'api_hash' => 'ce8d0741f0cb0c8558e98334109126b4'],
-		'logger'	=> ['logger' => 2, 'logger_param' => 'madeline/bot.log', 'logger_level' => \danog\MadelineProto\Logger::ULTRA_VERBOSE]
-	]; 
-	$is_logged = file_exists('madeline/bot.session');
-	$mp = new danog\MadelineProto\API('madeline/bot.session', $settings);
+	$settings = parse_ini_file('manager/madeline/settings.ini', true);
+	$is_logged = file_exists('manager/madeline/bot.session');
+	$mp = new danog\MadelineProto\API('manager/madeline/bot.session', $settings);
 	
 	if (!$is_logged) { #|| $mp->get_self()['id'] != json_decode(file_get_contents("https://api.telegram.org/bot{$token}/getMe"))->result->id) {
 		if (!$token)
@@ -1764,7 +1764,7 @@ class MPSend {
 				'peer' => $chat_id,
 				'media' => [
 					'_' => 'inputMediaUploadedPhoto',
-					'file' => new danog\MadelineProto\FileCallback($path, $progress),
+					'file' => $path,
 				],
 				'message' => $caption,
 				'parse_mode' => 'HTML'
@@ -1807,23 +1807,16 @@ class MPSend {
 			$msg->edit("{$msg_text} {$round}%\n\nSpeed: {$speed}");
 			$last_time = microtime(true);
 		};
+		
 		try {
 			$this->mp->messages->setTyping([
 				'peer' => $chat_id,
 				'action' => ['_' => 'sendMessageUploadDocumentAction', 'progress' => 0],
 			]);
 			
-			if (!file_exists('manager/FFMPEG.php')) {
-				copy('https://raw.githubusercontent.com/dmongeau/FFMPEG/master/FFMPEG.php', 'manager/FFMPEG.php');
-			}
-			require_once 'manager/FFMPEG.php';
-			$ffmpeg = new FFMPEG($path);
-			$metadata = $ffmpeg->getMetadata();
-			$duration = $metadata['duration'];
-			$sec = round($duration/4);
-			//$thumb = calc_thumb_size($metadata['width'], $metadata['height'], $metadata['width']/2, '*');
-			//extract($thumb);
-			$ffmpeg->getThumbnail($thumbnail, $sec);
+			$getid3 = new getID3;
+			$file = $getid3->analyze($path);
+			$duration = $file['playtime_seconds'];
 			
 			$start = microtime(1);
 			$sentMessage = $this->mp->messages->sendMedia([
@@ -1831,7 +1824,7 @@ class MPSend {
 				'media' => [
 					'_' => 'inputMediaUploadedDocument',
 					'file' => new danog\MadelineProto\FileCallback($path, $progress),
-					'thumb' => $thumbnail,
+					#'thumb' => $thumbnail,
 					'mime_type' => mime_content_type($path),
 					'attributes' => [
 						['_' => 'documentAttributeVideo', 'supports_streaming' => true, 'duration' => $duration],
@@ -2187,8 +2180,33 @@ function handle($bot, $db, $lang, $args) {
 		}
 		
 		else if (preg_match('#^download_vid (?<path>.+)#', $call, $match)) {
+			#Downloading getID3
+			if (!file_exists('manager/getid3')) {
+				$bot->send('Installing getID3... Should happen only now');
+				$name = 'getid3'.time().'.zip';
+				copy('https://github.com/JamesHeinrich/getID3/archive/master.zip', $name);
+				$zip = new ZipArchive;
+				$zip->open($name);
+				$files = [];
+				for ($i=0; $i < $zip->numFiles; $i++) {
+					$entry = $zip->getFromIndex($i);
+					$entry_name = $zip->getNameIndex($i);
+					if (strpos($entry_name, '/getid3/')) {
+						if ($entry) {
+							$savename = 'manager/getid3/'.substr($entry_name, strpos($entry_name, '/getid3/')+8);
+							$dirname = dirname($savename);
+							if (!is_dir($dirname)) mkdir($dirname, 0755, true);
+							file_put_contents($savename,  $entry);
+						}
+					}
+				}
+				$zip->close();
+				unlink($name);
+			}
+			
+			require_once 'manager/getid3/getid3.php';
 			$mp = new MPSend($bot->bot_token);
-			$res = $mp->img($match['path']);
+			$res = $mp->vid($match['path']);
 			if (!$res['ok']) {
 				$bot->answerCallbackQuery(['callback_query_id' => $call_id, 'text' => $res->err->getMessage(), 'show_alert' => TRUE]);
 			}
@@ -2196,7 +2214,7 @@ function handle($bot, $db, $lang, $args) {
 		
 		else if (preg_match('#^download_img (?<path>.+)#', $call, $match)) {
 			$mp = new MPSend($bot->bot_token);
-			$res = $mp->doc($match['path']);
+			$res = $mp->img($match['path']);
 			if (!$res['ok']) {
 				$bot->answerCallbackQuery(['callback_query_id' => $call_id, 'text' => $res->err->getMessage(), 'show_alert' => TRUE]);
 			}
@@ -2403,7 +2421,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 						$supported = shell_exec('php -r "echo \'a\';"') == 'a';
 						if ($supported) {
 							$result = shell_exec("php -l {$name}") ?? '';
-							if ($result && stripos($result, 'errors parsing')) {
+							if ($result && stripos($result, 'errors parsing') !== false) {
 								@$bot->reply($result, ['parse_mode' => null]);
 								if ($oldB) {
 									file_put_contents($name, $old_content);
@@ -2555,7 +2573,7 @@ $changes", ['reply_markup' => $keyboard]);
 					$supported = shell_exec('php -r "echo \'a\';"') == 'a';
 					if ($supported) {
 						$result = shell_exec('php -l '.escapeshellarg($name)) ?? '';
-						if ($result && stripos($result, 'errors parsing')) {
+						if ($result && stripos($result, 'errors parsing') !== false) {
 							@$bot->reply($result, ['parse_mode' => null]);
 							if ($oldB) {
 								file_put_contents($name, $old_content);

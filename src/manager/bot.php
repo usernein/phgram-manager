@@ -119,8 +119,33 @@ function handle($bot, $db, $lang, $args) {
 		}
 		
 		else if (preg_match('#^download_vid (?<path>.+)#', $call, $match)) {
+			#Downloading getID3
+			if (!file_exists('manager/getid3')) {
+				$bot->send('Installing getID3... Should happen only now');
+				$name = 'getid3'.time().'.zip';
+				copy('https://github.com/JamesHeinrich/getID3/archive/master.zip', $name);
+				$zip = new ZipArchive;
+				$zip->open($name);
+				$files = [];
+				for ($i=0; $i < $zip->numFiles; $i++) {
+					$entry = $zip->getFromIndex($i);
+					$entry_name = $zip->getNameIndex($i);
+					if (strpos($entry_name, '/getid3/')) {
+						if ($entry) {
+							$savename = 'manager/getid3/'.substr($entry_name, strpos($entry_name, '/getid3/')+8);
+							$dirname = dirname($savename);
+							if (!is_dir($dirname)) mkdir($dirname, 0755, true);
+							file_put_contents($savename,  $entry);
+						}
+					}
+				}
+				$zip->close();
+				unlink($name);
+			}
+			
+			require_once 'manager/getid3/getid3.php';
 			$mp = new MPSend($bot->bot_token);
-			$res = $mp->img($match['path']);
+			$res = $mp->vid($match['path']);
 			if (!$res['ok']) {
 				$bot->answerCallbackQuery(['callback_query_id' => $call_id, 'text' => $res->err->getMessage(), 'show_alert' => TRUE]);
 			}
@@ -128,7 +153,7 @@ function handle($bot, $db, $lang, $args) {
 		
 		else if (preg_match('#^download_img (?<path>.+)#', $call, $match)) {
 			$mp = new MPSend($bot->bot_token);
-			$res = $mp->doc($match['path']);
+			$res = $mp->img($match['path']);
 			if (!$res['ok']) {
 				$bot->answerCallbackQuery(['callback_query_id' => $call_id, 'text' => $res->err->getMessage(), 'show_alert' => TRUE]);
 			}
@@ -335,7 +360,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 						$supported = shell_exec('php -r "echo \'a\';"') == 'a';
 						if ($supported) {
 							$result = shell_exec("php -l {$name}") ?? '';
-							if ($result && stripos($result, 'errors parsing')) {
+							if ($result && stripos($result, 'errors parsing') !== false) {
 								@$bot->reply($result, ['parse_mode' => null]);
 								if ($oldB) {
 									file_put_contents($name, $old_content);
@@ -412,7 +437,7 @@ $changes", ['reply_markup' => $keyboard]);
 					#fpc = use file_put_contents
 					$fpc = true;
 				} else {
-					$bot->send('Reply to a document or a text.');
+					$bot->send('Reply to a media or a text.');
 					exit;
 				}
 			} else if (!$file_id) {
@@ -426,7 +451,7 @@ $changes", ['reply_markup' => $keyboard]);
 					#fpc = use file_put_contents
 					$fpc = true;
 				} else {
-					$bot->send('Reply to a document or a text.');
+					$bot->send('Reply to a media or a text.');
 					exit();
 				}
 			} else if ($file_id) {
@@ -443,7 +468,7 @@ $changes", ['reply_markup' => $keyboard]);
 				#fpc = use file_put_contents
 				$fpc = false;
 			} else {
-				$bot->send('Reply to a document or a text.');
+				$bot->send('Reply to a media or a text.');
 				exit();
 			}
 				
@@ -487,7 +512,7 @@ $changes", ['reply_markup' => $keyboard]);
 					$supported = shell_exec('php -r "echo \'a\';"') == 'a';
 					if ($supported) {
 						$result = shell_exec('php -l '.escapeshellarg($name)) ?? '';
-						if ($result && stripos($result, 'errors parsing')) {
+						if ($result && stripos($result, 'errors parsing') !== false) {
 							@$bot->reply($result, ['parse_mode' => null]);
 							if ($oldB) {
 								file_put_contents($name, $old_content);

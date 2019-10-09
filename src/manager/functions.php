@@ -133,12 +133,16 @@ function get_perms($file) {
 }
 function mp($token = null) {
 	global $mp, $bot;
-	@$bot->send('Installing MadelineProto... (should happen only now)');
 	if (!is_dir('manager')) {
 		if (file_exists('manager')) rename('manager', 'old_manager');
 		mkdir('manager');
 	}
-	if (!file_exists('manager/madeline/madeline.php')) {
+	$mphp_exists = file_exists('manager/madeline/madeline.php');
+	$mphar_exists = file_exists('manager/madeline/madeline.phar');
+	if (!$mphp_exists || !$mphar_exists)
+		@$bot->send('Installing MadelineProto... (should happen only now)');
+	
+	if (!$mphp_exists) {
 		if (!file_exists('manager/madeline')) {
 			mkdir('manager/madeline');
 		} else if (!is_dir('manager/madeline')) {
@@ -147,13 +151,18 @@ function mp($token = null) {
 		}
 		copy('https://phar.madelineproto.xyz/madeline.php', 'manager/madeline/madeline.php');
 	}
+	if (!file_exists('manager/madeline/settings.ini')) {
+		copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/requirements/madeline.settings.ini', 'manager/madeline/settings.ini');
+	}
+	# correcting madeline.phar path
+	$contents = file_get_contents('manager/madeline/madeline.php');
+	$contents = preg_replace('#(?<!manager/madeline/)madeline.phar#', 'manager/madeline/madeline.phar', $contents);
+	file_put_contents('manager/madeline/madeline.php', $contents);
+	
 	include_once 'manager/madeline/madeline.php';
-	$settings = [
-		'app_info' => ['api_id' => 163474, 'api_hash' => 'ce8d0741f0cb0c8558e98334109126b4'],
-		'logger'	=> ['logger' => 2, 'logger_param' => 'madeline/bot.log', 'logger_level' => \danog\MadelineProto\Logger::ULTRA_VERBOSE]
-	]; 
-	$is_logged = file_exists('madeline/bot.session');
-	$mp = new danog\MadelineProto\API('madeline/bot.session', $settings);
+	$settings = parse_ini_file('manager/madeline/settings.ini', true);
+	$is_logged = file_exists('manager/madeline/bot.session');
+	$mp = new danog\MadelineProto\API('manager/madeline/bot.session', $settings);
 	
 	if (!$is_logged) { #|| $mp->get_self()['id'] != json_decode(file_get_contents("https://api.telegram.org/bot{$token}/getMe"))->result->id) {
 		if (!$token)
@@ -265,7 +274,7 @@ class MPSend {
 				'peer' => $chat_id,
 				'media' => [
 					'_' => 'inputMediaUploadedPhoto',
-					'file' => new danog\MadelineProto\FileCallback($path, $progress),
+					'file' => $path,
 				],
 				'message' => $caption,
 				'parse_mode' => 'HTML'
@@ -308,23 +317,16 @@ class MPSend {
 			$msg->edit("{$msg_text} {$round}%\n\nSpeed: {$speed}");
 			$last_time = microtime(true);
 		};
+		
 		try {
 			$this->mp->messages->setTyping([
 				'peer' => $chat_id,
 				'action' => ['_' => 'sendMessageUploadDocumentAction', 'progress' => 0],
 			]);
 			
-			if (!file_exists('manager/FFMPEG.php')) {
-				copy('https://raw.githubusercontent.com/dmongeau/FFMPEG/master/FFMPEG.php', 'manager/FFMPEG.php');
-			}
-			require_once 'manager/FFMPEG.php';
-			$ffmpeg = new FFMPEG($path);
-			$metadata = $ffmpeg->getMetadata();
-			$duration = $metadata['duration'];
-			$sec = round($duration/4);
-			//$thumb = calc_thumb_size($metadata['width'], $metadata['height'], $metadata['width']/2, '*');
-			//extract($thumb);
-			$ffmpeg->getThumbnail($thumbnail, $sec);
+			$getid3 = new getID3;
+			$file = $getid3->analyze($path);
+			$duration = $file['playtime_seconds'];
 			
 			$start = microtime(1);
 			$sentMessage = $this->mp->messages->sendMedia([
@@ -332,7 +334,7 @@ class MPSend {
 				'media' => [
 					'_' => 'inputMediaUploadedDocument',
 					'file' => new danog\MadelineProto\FileCallback($path, $progress),
-					'thumb' => $thumbnail,
+					#'thumb' => $thumbnail,
 					'mime_type' => mime_content_type($path),
 					'attributes' => [
 						['_' => 'documentAttributeVideo', 'supports_streaming' => true, 'duration' => $duration],

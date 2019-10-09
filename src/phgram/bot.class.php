@@ -181,31 +181,20 @@ class Bot {
 			var_dump($value);
 			$text = ob_get_contents();
 			ob_end_clean();
+			
+			$text = $text ?? print_r($value, 1) ?? 'undefined';
 		}
 		$params = ['parse_mode' => $parse_mode, 'disable_web_page_preview' => TRUE, 'text' => $text];
 		
 		if (mb_strlen($text) > 4096) {
-			$name = 'log_'.$this->UpdateID().'.txt';
-		
-			$file_exists = file_exists($name);
-			$contents = ($file_exists? file_get_contents($name) : 0);
+			$name = 'phlog_'.$this->UpdateID().'.txt';
 			
 			file_put_contents($name, $text);
 			
 			$url = "https://api.telegram.org/bot{$this->bot_token}/sendDocument";
 			$params = [];
 			$document = curl_file_create(realpath($name));
-			if (file_exists(realpath($name)) && !is_dir(realpath($name))) {
-				$params['document'] = $document;
-			} else {
-				$params['document'] = $name;
-			}
-			
-			if ($file_exists) {
-				file_put_contents($name, $contents);
-			} else {
-				#unlink($name);
-			}
+			$params['document'] = $document;
 		}
 		
 		if (is_array($this->debug_admin)) {
@@ -215,7 +204,9 @@ class Bot {
 			}
 		} else {
 			$params['chat_id'] = $this->debug_admin;
-			$this->sendAPIRequest($url, $params);
+			$res = $this->sendAPIRequest($url, $params);
+			if (!json_decode($res)->ok)
+				file_put_contents('phlog_error', $text."\n\n".$res);
 		}
 		
 		return $value;
