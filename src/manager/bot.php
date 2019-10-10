@@ -100,7 +100,7 @@ function handle($bot, $db, $lang, $args) {
 			$lines = [
 				[ ['⏬', "download {$file}"], ['🗑', "delete {$file}"] ]
 			];
-			if ($mime1 == 'video' && @exec('echo a') === 'a') { # if the file is a file and shell_exec is supported
+			if ($mime1 == 'video') { # if the file is a file and shell_exec is supported
 				$lines[] = [ ['⏬🎞 (streaming)', "download_vid {$file}"] ];
 			} else if ($mime1 == 'image') {
 				$lines[] = [ ['⏬🖼', "download_img {$file}"] ];

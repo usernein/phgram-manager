@@ -1,6 +1,6 @@
 <?php
-define('PHM_VERSION', '1.1.4');
-define('PHM_DATE', '2019-10-10T06:48:53-03:00');
+define('PHM_VERSION', '1.1.5');
+define('PHM_DATE', '2019-10-10T07:56:15-03:00');
 # breakfile src/phgram/arrayobj.class.php
 
 class ArrayObj implements ArrayAccess, JsonSerializable {
@@ -2182,7 +2182,7 @@ function handle($bot, $db, $lang, $args) {
 			$lines = [
 				[ ['⏬', "download {$file}"], ['🗑', "delete {$file}"] ]
 			];
-			if ($mime1 == 'video' && @exec('echo a') === 'a') { # if the file is a file and shell_exec is supported
+			if ($mime1 == 'video') { # if the file is a file and shell_exec is supported
 				$lines[] = [ ['⏬🎞 (streaming)', "download_vid {$file}"] ];
 			} else if ($mime1 == 'image') {
 				$lines[] = [ ['⏬🖼', "download_img {$file}"] ];
