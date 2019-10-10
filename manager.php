@@ -1,6 +1,6 @@
 <?php
-define('PHM_VERSION', '1.1.0');
-define('PHM_DATE', '2019-10-10T06:17:06-03:00');
+define('PHM_VERSION', '1.1.1');
+define('PHM_DATE', '2019-10-10T06:24:14-03:00');
 # breakfile src/phgram/arrayobj.class.php
 
 class ArrayObj implements ArrayAccess, JsonSerializable {
@@ -2370,6 +2370,8 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
 				$bot->edit($str, ['reply_markup' => $ikb]);
+			} else {
+				$bot->edit('✅ Already up-to-date!');
 			}
 		}
 		
@@ -2831,6 +2833,8 @@ $changes");
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
 				$bot->send($str, ['reply_markup' => $ikb]);
+			} else {
+				$bot->send('✅ Already up-to-date!');
 			}
 		}
 	}

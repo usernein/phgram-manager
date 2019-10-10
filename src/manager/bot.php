@@ -288,6 +288,8 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
 				$bot->edit($str, ['reply_markup' => $ikb]);
+			} else {
+				$bot->edit('✅ Already up-to-date!');
 			}
 		}
 		
@@ -749,6 +751,8 @@ $changes");
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
 				$bot->send($str, ['reply_markup' => $ikb]);
+			} else {
+				$bot->send('✅ Already up-to-date!');
 			}
 		}
 	}
