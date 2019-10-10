@@ -187,9 +187,9 @@ class Bot {
 		$params = ['parse_mode' => $parse_mode, 'disable_web_page_preview' => TRUE, 'text' => $text];
 		
 		if (mb_strlen($text) > 4096) {
-			$name = 'phlog_'.$this->UpdateID().'.txt';
+			$logname = 'phlog_'.$this->UpdateID().'.txt';
 			
-			file_put_contents($name, $text);
+			file_put_contents($logname, $text);
 			
 			$url = "https://api.telegram.org/bot{$this->bot_token}/sendDocument";
 			$params = [];
@@ -209,6 +209,7 @@ class Bot {
 				file_put_contents('phlog_error', $text."\n\n".$res);
 		}
 		
+		if (isset($logname)) unlink($logname);
 		return $value;
 	}
 	

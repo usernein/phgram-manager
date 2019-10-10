@@ -1,17 +1,19 @@
 <?php
-# Config
-$cfg->bot = $_GET['token'] ?? $cfg->bot;
-$cfg->admin = @explode(' ', @$_GET['admin']) ?? $cfg->admin;
-
+# Urgent stuff
 Bot::respondWebhook([], 10*60);
-BotErrorHandler::register($cfg->bot, $cfg->admin);
-session_write_close();
-
-ini_set('log_errors', 1);
-ini_set('error_log', 'error_log');
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', 'error_log.log');
+session_write_close();
+
+# Config
+$cfg->bot = $_GET['token'] ?? $cfg->bot;
+$cfg->admin = (isset($_GET['admin'])? explode(' ', $_GET['admin']) : null) ?? $cfg->admin;
+
+ini_set('log_errors', 0);
+BotErrorHandler::register($cfg->bot, $cfg->admin);
 
 # include_dir feature
 if (is_dir('includes') && $cfg->use_include_dir) {
@@ -31,7 +33,6 @@ class MyPDO extends PDO {
 
 # Header
 $bot = new Bot($cfg->bot, $cfg->admin);
-#$handler = new BotErrorHandler($cfg->bot, $cfg->admin);
 
 $db_exists = file_exists('manager.db');
 $db = new MyPDO('sqlite:manager.db');
@@ -75,5 +76,5 @@ $args = compact('handler', 'cfg', 'config', 'mp');
 try {
 	handle($bot, $db, $lang, $args);
 } catch (Throwable $t) {
-	$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+	$bot->log(/*Throwable*/$t);
 }

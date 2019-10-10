@@ -71,7 +71,7 @@ class BotErrorHandler {
 	
 	// handle errors
 	public static function error_handler($error_type, $error_message, $error_file, $error_line, $error_args) {
-		if (error_reporting() === 0) return false;
+		if (error_reporting() === 0 && self::$verbose != true) return false;
 		
 		$str = htmlspecialchars("{$error_message} in {$error_file} on line {$error_line}");
 		$str .= "\nView:\n". phgram_pretty_debug(2);
@@ -102,6 +102,9 @@ class BotErrorHandler {
 		
 		$error_type = self::get_error_type($error_type);
 		$str .= "\nError type: {$error_type}.";
+		
+		$error_log_str = "{$error_type}: {$error_message} in {$error_file} on line {$error_line}";
+		error_log($error_log_str);
 		
 		self::log($str);
 		
@@ -136,6 +139,8 @@ class BotErrorHandler {
 				($sender? "sent by <a href='tg://user?id={$sender}'>{$sender_name}</a>, " : '').
 				($chat? "in {$chat_id} ({$chat_mention})." : '')." Update type: '{$type}'.";
 		}
+		$error_log_str = "Exception: {$e->getMessage()} in {$e->getFile()} on line {$e->getline()}";
+		error_log($error_log_str);
 		
 		self::log($str);
 		
@@ -151,13 +156,30 @@ class BotErrorHandler {
 		}
 	}
 	
-	public static function log($text) {
+	public static function log($text, $type = 'ERR') {
+		$params = ['chat_id' => self::$admin, 'text' => $text, 'parse_mode' => 'html'];
+		$method = 'sendMessage';
+		
+		if (mb_strlen($text) > 4096) {
+			$text = substr($text, 0, 20400); # 20480 = 20MB (limit of BotAPI)
+			$logname = 'BEHlog_'.time().'.txt';
+			
+			file_put_contents($logname, $text);
+			
+			$method = 'sendDocument';
+			$document = curl_file_create(realpath($name));
+			$document->postname = $type.'_report.txt';
+			$params['document'] = $document;
+		}
+		
 		if (is_array(self::$admin)) {
 			foreach (self::$admin as $admin) {
-				self::call('sendMessage', ['chat_id' => $admin, 'text' => $text, 'parse_mode' => 'html']);
+				$params['chat_id'] = $admin;
+				self::call($method, $params);
 			}
 		} else {
-			self::call('sendMessage', ['chat_id' => self::$admin, 'text' => $text, 'parse_mode' => 'html']);
+			self::call($method, $params);
 		}
+		if (isset($logname)) unlink($logname);
 	}
 }

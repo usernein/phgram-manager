@@ -137,30 +137,25 @@ function mp($token = null) {
 		if (file_exists('manager')) rename('manager', 'old_manager');
 		mkdir('manager');
 	}
-	$mphp_exists = file_exists('manager/madeline/madeline.php');
-	$mphar_exists = file_exists('manager/madeline/madeline.phar');
-	if (!$mphp_exists || !$mphar_exists)
-		@$bot->send('Installing MadelineProto... (should happen only now)');
-	
-	if (!$mphp_exists) {
+	if (!file_exists('manager/madeline/madeline.php')) {
 		if (!file_exists('manager/madeline')) {
 			mkdir('manager/madeline');
 		} else if (!is_dir('manager/madeline')) {
 			rename('manager/madeline', 'manager/old_madeline');
 			mkdir('manager/madeline');
 		}
+		@$bot->send('Installing MadelineProto... (should happen only now)');
 		copy('https://phar.madelineproto.xyz/madeline.php', 'manager/madeline/madeline.php');
 	}
+	include_once 'manager/madeline/madeline.php';
 	if (!file_exists('manager/madeline/settings.ini')) {
 		copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/requirements/madeline.settings.ini', 'manager/madeline/settings.ini');
 	}
-	# correcting madeline.phar path
-	$contents = file_get_contents('manager/madeline/madeline.php');
-	$contents = preg_replace('#(?<!manager/madeline/)madeline.phar#', 'manager/madeline/madeline.phar', $contents);
-	file_put_contents('manager/madeline/madeline.php', $contents);
+	$settings = parse_ini_file('manager/madeline/settings.ini', true, INI_SCANNER_TYPED);
 	
-	include_once 'manager/madeline/madeline.php';
-	$settings = parse_ini_file('manager/madeline/settings.ini', true);
+	if (!isset($settings['app_info']['api_id']) || !isset($settings['app_info']['api_hash']) || $settings['app_info']['api_id'] == "API_ID" || $settings['app_info']['api_hash'] == "API_HASH") {
+		throw new Exception('Invalid api_id or api_hash. Edit them on manager/madeline/settings.ini');
+	}
 	$is_logged = file_exists('manager/madeline/bot.session');
 	$mp = new danog\MadelineProto\API('manager/madeline/bot.session', $settings);
 	
@@ -227,8 +222,9 @@ class MPSend {
 			]);
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
-			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
+			$bot->log($t);
+			#$bot->log("$t");
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -281,8 +277,8 @@ class MPSend {
 			]);
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
-			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
+			$bot->log("$t");
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -345,8 +341,8 @@ class MPSend {
 			]);
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
-			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
+			$bot->log("$t");
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -404,7 +400,7 @@ class MPSend {
 			$path = $this->mp->download_to_file($file_id, new danog\MadelineProto\FileCallback($name, $progress));
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();

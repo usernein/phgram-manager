@@ -244,7 +244,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			try {
 				delTree($path);
 			} catch (Throwable $t) {
-				$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+				$bot->log(/*Throwable*/$t);
 			}
 			$path = dirname($match['path']);
 			goto list_dir;
@@ -392,7 +392,7 @@ Bytes difference: {$diff} ({$diffSize})
 
 $changes", ['reply_markup' => $keyboard]);
 				} catch (Throwable $t) {
-					$bot->reply("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+					$bot->reply("Failed: $t");
 				}
 			} else if ($text == '/stop') {
 				$db->query("UPDATE users SET auto_upload=0, upload_path='.' WHERE id={$user_id}");
@@ -493,7 +493,10 @@ $changes", ['reply_markup' => $keyboard]);
 				}
 				
 				if ($fpc) {
+					$start = microtime(1);
 					$newB = file_put_contents($name, $contents);
+					$end = microtime(1);
+					$duration = convert_time($end-$start);
 				} else {
 					$info = $mp->get($media, $name);
 					if (!$info['ok']) {
@@ -539,7 +542,7 @@ Bytes difference: {$diff} ({$diffSize})
 		
 $changes");
 			} catch (Throwable $t) {
-				$bot->reply("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+				$bot->reply("Failed: $t");
 			}
 		}
 		

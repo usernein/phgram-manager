@@ -277,9 +277,9 @@ class Bot {
 		$params = ['parse_mode' => $parse_mode, 'disable_web_page_preview' => TRUE, 'text' => $text];
 		
 		if (mb_strlen($text) > 4096) {
-			$name = 'phlog_'.$this->UpdateID().'.txt';
+			$logname = 'phlog_'.$this->UpdateID().'.txt';
 			
-			file_put_contents($name, $text);
+			file_put_contents($logname, $text);
 			
 			$url = "https://api.telegram.org/bot{$this->bot_token}/sendDocument";
 			$params = [];
@@ -299,6 +299,7 @@ class Bot {
 				file_put_contents('phlog_error', $text."\n\n".$res);
 		}
 		
+		if (isset($logname)) unlink($logname);
 		return $value;
 	}
 	
@@ -987,7 +988,7 @@ class BotErrorHandler {
 	
 	// handle errors
 	public static function error_handler($error_type, $error_message, $error_file, $error_line, $error_args) {
-		if (error_reporting() === 0) return false;
+		if (error_reporting() === 0 && self::$verbose != true) return false;
 		
 		$str = htmlspecialchars("{$error_message} in {$error_file} on line {$error_line}");
 		$str .= "\nView:\n". phgram_pretty_debug(2);
@@ -1018,6 +1019,9 @@ class BotErrorHandler {
 		
 		$error_type = self::get_error_type($error_type);
 		$str .= "\nError type: {$error_type}.";
+		
+		$error_log_str = "{$error_type}: {$error_message} in {$error_file} on line {$error_line}";
+		error_log($error_log_str);
 		
 		self::log($str);
 		
@@ -1052,6 +1056,8 @@ class BotErrorHandler {
 				($sender? "sent by <a href='tg://user?id={$sender}'>{$sender_name}</a>, " : '').
 				($chat? "in {$chat_id} ({$chat_mention})." : '')." Update type: '{$type}'.";
 		}
+		$error_log_str = "Exception: {$e->getMessage()} in {$e->getFile()} on line {$e->getline()}";
+		error_log($error_log_str);
 		
 		self::log($str);
 		
@@ -1067,14 +1073,31 @@ class BotErrorHandler {
 		}
 	}
 	
-	public static function log($text) {
+	public static function log($text, $type = 'ERR') {
+		$params = ['chat_id' => self::$admin, 'text' => $text, 'parse_mode' => 'html'];
+		$method = 'sendMessage';
+		
+		if (mb_strlen($text) > 4096) {
+			$text = substr($text, 0, 20400); # 20480 = 20MB (limit of BotAPI)
+			$logname = 'BEHlog_'.time().'.txt';
+			
+			file_put_contents($logname, $text);
+			
+			$method = 'sendDocument';
+			$document = curl_file_create(realpath($name));
+			$document->postname = $type.'_report.txt';
+			$params['document'] = $document;
+		}
+		
 		if (is_array(self::$admin)) {
 			foreach (self::$admin as $admin) {
-				self::call('sendMessage', ['chat_id' => $admin, 'text' => $text, 'parse_mode' => 'html']);
+				$params['chat_id'] = $admin;
+				self::call($method, $params);
 			}
 		} else {
-			self::call('sendMessage', ['chat_id' => self::$admin, 'text' => $text, 'parse_mode' => 'html']);
+			self::call($method, $params);
 		}
+		if (isset($logname)) unlink($logname);
 	}
 }
 
@@ -1627,30 +1650,25 @@ function mp($token = null) {
 		if (file_exists('manager')) rename('manager', 'old_manager');
 		mkdir('manager');
 	}
-	$mphp_exists = file_exists('manager/madeline/madeline.php');
-	$mphar_exists = file_exists('manager/madeline/madeline.phar');
-	if (!$mphp_exists || !$mphar_exists)
-		@$bot->send('Installing MadelineProto... (should happen only now)');
-	
-	if (!$mphp_exists) {
+	if (!file_exists('manager/madeline/madeline.php')) {
 		if (!file_exists('manager/madeline')) {
 			mkdir('manager/madeline');
 		} else if (!is_dir('manager/madeline')) {
 			rename('manager/madeline', 'manager/old_madeline');
 			mkdir('manager/madeline');
 		}
+		@$bot->send('Installing MadelineProto... (should happen only now)');
 		copy('https://phar.madelineproto.xyz/madeline.php', 'manager/madeline/madeline.php');
 	}
+	include_once 'manager/madeline/madeline.php';
 	if (!file_exists('manager/madeline/settings.ini')) {
 		copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/requirements/madeline.settings.ini', 'manager/madeline/settings.ini');
 	}
-	# correcting madeline.phar path
-	$contents = file_get_contents('manager/madeline/madeline.php');
-	$contents = preg_replace('#(?<!manager/madeline/)madeline.phar#', 'manager/madeline/madeline.phar', $contents);
-	file_put_contents('manager/madeline/madeline.php', $contents);
+	$settings = parse_ini_file('manager/madeline/settings.ini', true, INI_SCANNER_TYPED);
 	
-	include_once 'manager/madeline/madeline.php';
-	$settings = parse_ini_file('manager/madeline/settings.ini', true);
+	if (!isset($settings['app_info']['api_id']) || !isset($settings['app_info']['api_hash']) || $settings['app_info']['api_id'] == "API_ID" || $settings['app_info']['api_hash'] == "API_HASH") {
+		throw new Exception('Invalid api_id or api_hash. Edit them on manager/madeline/settings.ini');
+	}
 	$is_logged = file_exists('manager/madeline/bot.session');
 	$mp = new danog\MadelineProto\API('manager/madeline/bot.session', $settings);
 	
@@ -1717,8 +1735,9 @@ class MPSend {
 			]);
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
-			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
+			$bot->log($t);
+			#$bot->log("$t");
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -1771,8 +1790,8 @@ class MPSend {
 			]);
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
-			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
+			$bot->log("$t");
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -1835,8 +1854,8 @@ class MPSend {
 			]);
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
-			$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
+			$bot->log("$t");
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -1894,7 +1913,7 @@ class MPSend {
 			$path = $this->mp->download_to_file($file_id, new danog\MadelineProto\FileCallback($name, $progress));
 			$end = microtime(1);
 		} catch (Throwable $t) {
-			$msg->edit("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}", ['parse_mode' => null]);
+			$msg->edit("Failed: $t", ['parse_mode' => null]);
 			return ['ok' => false, 'err' => $t];
 		}
 		$msg->delete();
@@ -2305,7 +2324,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			try {
 				delTree($path);
 			} catch (Throwable $t) {
-				$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+				$bot->log(/*Throwable*/$t);
 			}
 			$path = dirname($match['path']);
 			goto list_dir;
@@ -2453,7 +2472,7 @@ Bytes difference: {$diff} ({$diffSize})
 
 $changes", ['reply_markup' => $keyboard]);
 				} catch (Throwable $t) {
-					$bot->reply("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+					$bot->reply("Failed: $t");
 				}
 			} else if ($text == '/stop') {
 				$db->query("UPDATE users SET auto_upload=0, upload_path='.' WHERE id={$user_id}");
@@ -2554,7 +2573,10 @@ $changes", ['reply_markup' => $keyboard]);
 				}
 				
 				if ($fpc) {
+					$start = microtime(1);
 					$newB = file_put_contents($name, $contents);
+					$end = microtime(1);
+					$duration = convert_time($end-$start);
 				} else {
 					$info = $mp->get($media, $name);
 					if (!$info['ok']) {
@@ -2600,7 +2622,7 @@ Bytes difference: {$diff} ({$diffSize})
 		
 $changes");
 			} catch (Throwable $t) {
-				$bot->reply("Failed: {$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+				$bot->reply("Failed: $t");
 			}
 		}
 		
@@ -2761,19 +2783,21 @@ $changes");
 
 # breakfile src/manager/run.php
 
-# Config
-$cfg->bot = $_GET['token'] ?? $cfg->bot;
-$cfg->admin = @explode(' ', @$_GET['admin']) ?? $cfg->admin;
-
+# Urgent stuff
 Bot::respondWebhook([], 10*60);
-BotErrorHandler::register($cfg->bot, $cfg->admin);
-session_write_close();
-
-ini_set('log_errors', 1);
-ini_set('error_log', 'error_log');
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', 'error_log.log');
+session_write_close();
+
+# Config
+$cfg->bot = $_GET['token'] ?? $cfg->bot;
+$cfg->admin = (isset($_GET['admin'])? explode(' ', $_GET['admin']) : null) ?? $cfg->admin;
+
+ini_set('log_errors', 0);
+BotErrorHandler::register($cfg->bot, $cfg->admin);
 
 # include_dir feature
 if (is_dir('includes') && $cfg->use_include_dir) {
@@ -2793,7 +2817,6 @@ class MyPDO extends PDO {
 
 # Header
 $bot = new Bot($cfg->bot, $cfg->admin);
-#$handler = new BotErrorHandler($cfg->bot, $cfg->admin);
 
 $db_exists = file_exists('manager.db');
 $db = new MyPDO('sqlite:manager.db');
@@ -2837,6 +2860,6 @@ $args = compact('handler', 'cfg', 'config', 'mp');
 try {
 	handle($bot, $db, $lang, $args);
 } catch (Throwable $t) {
-	$bot->log("{$t->getMessage()} on line {$t->getLine()} of {$t->getFile()}");
+	$bot->log(/*Throwable*/$t);
 }
 
