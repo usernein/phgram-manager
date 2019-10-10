@@ -275,7 +275,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 				$my_date = date('d/m/Y H:i:s', $my_date);
 				$my_version = PHM_VERSION;
 				$files_changed = join(', ', $upgrade['files']);
-				$refreshed_date = date('d/m/Y H:i:s');
+				$refresh_date = date('d/m/Y H:i:s');
 				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
 🏷 Version: {$upgrade['version']} <i>(current: {$my_version})</i>
 🕚 Date: {$upgrade_date} <i>(current: {$my_date})</i>
@@ -297,9 +297,9 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$bot->answer_callback('❕ Upgrading...');
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
 			foreach ($upgrade['files'] as $file) {
-				file_put_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file, $file);
+				file_put_contents($file, 'https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file);
 			}
-			$bot->editMessageReplyMarkup(['chat_id' => $chat_id, 'message_id' => $message_id, 'reply_markup' => ikb([])]);
+			$bot->editMessageReplyMarkup(['chat_id' => $bot->ChatID(), 'message_id' => $bot->MessageID(), 'reply_markup' => ikb([])]);
 			$bot->send('✅ Done');
 		}
 		
