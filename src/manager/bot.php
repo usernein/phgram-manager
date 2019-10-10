@@ -314,7 +314,8 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$media = $msg['messages'][0]['media'];
 			$contents = $old_content = false; # default values
 			
-			$file_name = $name = $match['path'];
+			$name = $match['path'];
+			$file_name = basename($name);
 			try {
 				$old_content = false;
 				$oldB = @filesize($name);

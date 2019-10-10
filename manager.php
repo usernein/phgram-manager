@@ -1,6 +1,6 @@
 <?php
-define('PHM_VERSION', '1.2.6');
-define('PHM_DATE', '2019-10-10T14:40:16-03:00');
+define('PHM_VERSION', '1.2.7');
+define('PHM_DATE', '2019-10-10T14:44:57-03:00');
 # breakfile src/phgram/arrayobj.class.php
 
 class ArrayObj implements ArrayAccess, JsonSerializable {
@@ -2416,7 +2416,8 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$media = $msg['messages'][0]['media'];
 			$contents = $old_content = false; # default values
 			
-			$file_name = $name = $match['path'];
+			$name = $match['path'];
+			$file_name = basename($name);
 			try {
 				$old_content = false;
 				$oldB = @filesize($name);
