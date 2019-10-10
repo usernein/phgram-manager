@@ -1,6 +1,6 @@
 <?php
-define('PHM_VERSION', '1.1.2');
-define('PHM_DATE', '2019-10-10T06:32:21-03:00');
+define('PHM_VERSION', '1.1.3');
+define('PHM_DATE', '2019-10-10T06:44:24-03:00');
 # breakfile src/phgram/arrayobj.class.php
 
 class ArrayObj implements ArrayAccess, JsonSerializable {
@@ -2766,7 +2766,7 @@ $changes");
 			$result = $db->query('SELECT timezone, id FROM users');
 			while ($set = $result->fetch()) {
 				date_default_timezone_set($set['timezone']);
-				$output .= "<b>{$bot->Chat($set['id'])['first_name']}</b>'s time: <i>". date('H\hi d/m/y') ."</i>\n";
+				$output .= "<b>{$bot->mention($set['id'])}</b>'s time: <i>". date('H\hi d/m/y') ."</i>\n";
 			}
 			$bot->send($output);
 		}

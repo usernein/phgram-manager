@@ -684,7 +684,7 @@ $changes");
 			$result = $db->query('SELECT timezone, id FROM users');
 			while ($set = $result->fetch()) {
 				date_default_timezone_set($set['timezone']);
-				$output .= "<b>{$bot->Chat($set['id'])['first_name']}</b>'s time: <i>". date('H\hi d/m/y') ."</i>\n";
+				$output .= "<b>{$bot->mention($set['id'])}</b>'s time: <i>". date('H\hi d/m/y') ."</i>\n";
 			}
 			$bot->send($output);
 		}

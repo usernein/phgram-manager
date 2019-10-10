@@ -28,6 +28,7 @@ _Note: the parameters described below are following the format: [optional] {mand
  * `/ev {php code}` - execute a php code inside manager.php (with php function eval) and return the contents it echoed
  * `/zip {path}` - you'll receive the zipped content of the specified path
  * `/unzip {path}/` - in reply to a zip file, you'll extract its files to the specified path
+ * `/upgrade` - check for an update in github
 
 _NOTE: /add (in reply to file), /get, /del and /zip are obsolete, since you can do it all using the keyboard menu of /list._
 
