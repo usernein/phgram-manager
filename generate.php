@@ -1,22 +1,22 @@
 <?php
-if (!isset($argv[1])) exit("Pass version\n");
-if (!isset($argv[2])) exit("Pass changelog\n");
+if (!isset($argv[1])) exit("Pass changelog\n");
+if (!isset($argv[2])) exit("Pass version\n");
 $update = parse_ini_file('update/update.ini');
-if ($update['version'] == $argv[1]) exit("Can't use same version.");
+if ($update['version'] == $argv[2]) exit("Can't use same version.\n");
 
 $update = "version = %s
 date = \"%s\"
 files[] = manager.php
-changelog = \"{$argv[2]}\"
+changelog = \"{$argv[1]}\"
 ";
 date_default_timezone_set('America/Belem');
 $date = new DateTime('now');
 $date_str = $date->format(DateTime::RFC3339);
-$update = sprintf($update, $argv[1], $date_str);
+$update = sprintf($update, $argv[2], $date_str);
 file_put_contents('update/update.ini', $update);
 
 $str = "<?php
-define('PHM_VERSION', '{$argv[1]}');
+define('PHM_VERSION', '{$argv[2]}');
 define('PHM_DATE', '{$date_str}');
 ";
 $glob = glob('src/phgram/*');

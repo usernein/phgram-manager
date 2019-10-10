@@ -349,6 +349,19 @@ class Bot {
 	} 
 	
 	/**
+	 * Quick way to dinamically send or edit a message.
+	 */
+	public function act(string $text, array $params = []) {
+		$method = $this->update_type == 'callback_query'? 'editMessageText' : 'sendMessage';
+		$default = ['chat_id' => $this->ChatID() ?? $this->UserID(), 'parse_mode' => $this->default_parse_mode, 'disable_web_page_preview' => TRUE, 'text' => $text, 'message_id' => $this->MessageID()];
+		foreach ($params as $param => $value) {
+			$default[$param] = $value;
+		}
+		$default['text'] = $text;
+		return $this->__call($method, [$default]);
+	}
+	
+	/**
 	 * Quick way to send a file as document.
 	 *
 	 * Check out the Shortcuts section at the README.

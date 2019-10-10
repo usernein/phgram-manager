@@ -1,6 +1,6 @@
 <?php
-define('PHM_VERSION', '1.1.5');
-define('PHM_DATE', '2019-10-10T07:56:15-03:00');
+define('PHM_VERSION', '1.2.5');
+define('PHM_DATE', '2019-10-10T14:33:53-03:00');
 # breakfile src/phgram/arrayobj.class.php
 
 class ArrayObj implements ArrayAccess, JsonSerializable {
@@ -439,6 +439,19 @@ class Bot {
 		$default['text'] = $text;
 		return $this->editMessageText($default);
 	} 
+	
+	/**
+	 * Quick way to dinamically send or edit a message.
+	 */
+	public function act(string $text, array $params = []) {
+		$method = $this->update_type == 'callback_query'? 'editMessageText' : 'sendMessage';
+		$default = ['chat_id' => $this->ChatID() ?? $this->UserID(), 'parse_mode' => $this->default_parse_mode, 'disable_web_page_preview' => TRUE, 'text' => $text, 'message_id' => $this->MessageID()];
+		foreach ($params as $param => $value) {
+			$default[$param] = $value;
+		}
+		$default['text'] = $text;
+		return $this->__call($method, [$default]);
+	}
 	
 	/**
 	 * Quick way to send a file as document.
@@ -2078,6 +2091,13 @@ function calc_thumb_size($source_width, $source_height, $thumb_width, $thumb_hei
 	
 	return compact('thumb_width', 'thumb_height');
 }
+function rglob($pattern, $flags = 0) {
+	$files = glob($pattern, $flags); 
+	foreach (glob(dirname($pattern).'/*', GLOB_ONLYDIR|GLOB_NOSORT) as $dir) {
+		$files = array_merge($files, rglob($dir.'/'.basename($pattern), $flags));
+	}
+	return $files;
+}
 
 # breakfile src/manager/bot.php
 
@@ -2092,6 +2112,7 @@ function handle($bot, $db, $lang, $args) {
 		$call_id = $data['id'];
 		$user_id = $data['from']['id'];
 		$user = $db->query("SELECT * FROM users WHERE id={$user_id}")->fetch();
+		$message_id = $bot->MessageID();
 		
 		if (preg_match('#^list (?<path>.+)#', $call, $match)) {
 			$path = $match['path'] ?? '.';
@@ -2151,7 +2172,8 @@ function handle($bot, $db, $lang, $args) {
 			if ($d->d > 1) $last_modify = "{$d->d} days ago";
 			else if ($d->h > 1) $last_modify = "{$d->h} hours ago";
 			else if ($d->i > 1) $last_modify = "{$d->i} minutes ago";
-			else if ($d->s > 1) $last_modify = "{$d->s} seconds ago";
+			else if ($d->s >= 1) $last_modify = "{$d->s} seconds ago";
+			else if ($d->s == 0) $last_modify = "right now";
 			else $last_modify = "at ".date('d.m.y, H:i')." (".date_default_timezone_get().")";
 			
 			$owner = function_exists('posix_getpwuid')? posix_getpwuid(fileowner($file))['name'] : '-';
@@ -2163,7 +2185,8 @@ function handle($bot, $db, $lang, $args) {
 			if ($d->d > 1) $last_access = "{$d->d} days ago";
 			else if ($d->h > 1) $last_access = "{$d->h} hours ago";
 			else if ($d->i > 1) $last_access = "{$d->i} minutes ago";
-			else if ($d->s > 1) $last_access = "{$d->s} seconds ago";
+			else if ($d->s >= 1) $last_access = "{$d->s} seconds ago";
+			else if ($d->s == 0) $last_access = "right now";
 			else $last_access = "at ".date('d.m.y, H:i')." (".date_default_timezone_get().")";
 			
 			$perms = substr(sprintf('%o', fileperms($file)), -4);
@@ -2385,10 +2408,74 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$bot->send('✅ Done');
 		}
 		
+		else if (preg_match('#^add (?<path>.+)#', $call, $match)) {
+			$replied = $bot->ReplyToMessage();
+			if (!$replied->message_id) throw new Error('Bad replied message id');
+			$mp = new MPSend($bot->bot_token);
+			$msg = $mp->mp->messages->getMessages(['id' => [$replied->message_id]]);
+			$media = $msg['messages'][0]['media'];
+			$contents = $old_content = false; # default values
+			
+			$file_name = $name = $match['path'];
+			try {
+				$old_content = false;
+				$oldB = @filesize($name);
+				if ($oldB <= 50*1024*1024) {
+					$old_content = @file_get_contents($name);
+				}
+				
+				$info = $mp->get($media, $name);
+				if (!$info['ok']) {
+					$bot->send('Failed to add the file');
+					exit;
+				}
+				$duration = convert_time($info['duration']);
+				$info = $info['info'];
+				$newB = $info['size'];
+				if ($newB <= 50*1024*1024) {
+					$contents = @file_get_contents($name);
+				}
+				
+				if ($db->querySingle("SELECT php_check FROM users WHERE id={$user_id}") && preg_match('#\.php$#', $name)) {
+					$supported = shell_exec('php -r "echo \'a\';"') == 'a';
+					if ($supported) {
+						$result = shell_exec("php -l {$name}") ?? '';
+						if ($result && stripos($result, 'errors parsing') !== false) {
+							@$bot->reply($result, ['parse_mode' => null]);
+							if ($oldB) {
+								file_put_contents($name, $old_content);
+							} else {
+								unlink($name);
+							}
+							exit;
+						}
+					}
+				}
+			
+				$diff = $newB - $oldB;
+				$diffSize = format_size($diff);
+			
+				$changed = ($old_content !== false && $contents !== false && ($old_content != $contents));
+				if ($changed || $old_content === false || $contents === false) {
+					$changes = '';
+				} else {
+					$changes = 'File unchanged.';
+				}
+				
+				$bot->answer_callback("File saved as {$name} in {$duration}
+Bytes difference: {$diff} ({$diffSize})
+
+$changes", ['show_alert' => true]);
+				goto show_find_paths_add;
+			} catch (Throwable $t) {
+				$bot->reply("Failed: $t");
+			}
+		}
+		
 		else {
 			$bot->answer_callback($call);
 		}
-		@$bot->answer_callback();
+		@$bot->answer_callback($call);
 	}
 	
 ########################################.
@@ -2447,10 +2534,16 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 				$file_id = array_values($media)[1]['id'];
 				$info = $mp->mp->get_download_info($media);
 				$filename = "{$info['name']}{$info['ext']}";
-		
+				if (isset($info['MessageMedia']['document']['attributes'])) {
+					$attributes = array_column($info['MessageMedia']['document']['attributes'], null, '_');
+					if (isset($attributes['documentAttributeFilename'])) {
+						$filename = $attributes['documentAttributeFilename']['file_name'];
+					}
+				}
+				
 				$name = $message->find('file_name') ?? $filename;
 				$name = $user['upload_path'].'/'.$name;
-				$name = preg_replace(['#/$#', '#^~#'], ["/{$name}", $_SERVER['DOCUMENT_ROOT']], $name);
+				$name = preg_replace(['#/$#', '#^~#'], ["/{$filename}", $_SERVER['DOCUMENT_ROOT']], $name);
 				
 				if (@is_dir($name)) {
 					$bot->reply("The path for saving the file corresponds to an existing directory. If you want to add the file to this directory, use <pre>/add {$name}/</pre>.");
@@ -2583,6 +2676,12 @@ $changes", ['reply_markup' => $keyboard]);
 				$file_id = array_values($media)[1]['id'];
 				$info = $mp->mp->get_download_info($media);
 				$filename = "{$info['name']}{$info['ext']}";
+				if (isset($info['MessageMedia']['document']['attributes'])) {
+					$attributes = array_column($info['MessageMedia']['document']['attributes'], null, '_');
+					if (isset($attributes['documentAttributeFilename'])) {
+						$filename = $attributes['documentAttributeFilename']['file_name'];
+					}
+				}
 		
 				$name = $match['file'] ?? $replied->find('file_name') ?? $filename;
 				#fpc = use file_put_contents
@@ -2596,7 +2695,7 @@ $changes", ['reply_markup' => $keyboard]);
 				$bot->send('Could not get the file name. Please pass one as argument of /add.');
 				exit;
 			}
-			$name = preg_replace(['#/$#', '#^~#'], ["/{$name}", $_SERVER['DOCUMENT_ROOT']], $name);
+			$name = preg_replace(['#/$#', '#^~#'], ["/{$filename}", $_SERVER['DOCUMENT_ROOT']], $name);
 			
 			if (@is_dir($name)) {
 				$bot->reply("The selected path for saving the file corresponds to an existing directory. If you want to add the file to this directory, add <pre>/</pre> at the end.");
@@ -2751,7 +2850,8 @@ $changes");
 				if ($d->d > 1) $last_modify = "{$d->d} days ago";
 				else if ($d->h > 1) $last_modify = "{$d->h} hours ago";
 				else if ($d->i > 1) $last_modify = "{$d->i} minutes ago";
-				else if ($d->s > 1) $last_modify = "{$d->s} seconds ago";
+				else if ($d->s >= 1) $last_modify = "{$d->s} seconds ago";
+				else if ($d->s == 0) $last_modify = "right now";
 				else $last_modify = "at ".date('d.m.y, H:i')." (".date_default_timezone_get().")";
 				$caption = "Last modify ".$last_modify;
 				$mp = new MPSend($bot->bot_token);
@@ -2838,6 +2938,43 @@ $changes");
 			} else {
 				$bot->send('✅ Already up-to-date!');
 			}
+		}
+		
+		else if (($doc = $bot->Document()) && $bot->is_private()) {
+			#$bot->log($doc);
+			$ask = $db->querySingle("SELECT ask_upload FROM users WHERE id={$user_id}");
+			if (!$ask) return;
+			$file_name = $doc->file_name;
+			show_find_paths_add:
+			$files = rglob($file_name);
+			if (!$files) {
+				$ikb = ikb([
+					[ ['⏫ Add in the current directory', "add {$file_name}"] ]
+				]);
+				$dir = __DIR__;
+				return @$bot->act("There's no files named \"{$doc->file_name}\" under $dir.", ['reply_to_message_id' => $message_id, 'reply_markup' => $ikb]);
+			}
+			$count = count($files);
+			$str = "🔎 {$file_name} has been found in {$count} paths:\n";
+			$keyb = [];
+			foreach ($files as $file) {
+				$size = filesize($file);
+				$size = format_size($size);
+				
+				$modified_time = new DateTime('@'. filemtime($file));
+				$now = new DateTime('now');
+				$d = $modified_time->diff($now, true);
+				if ($d->d > 1) $last_modify = "{$d->d} days ago";
+				else if ($d->h > 1) $last_modify = "{$d->h} hours ago";
+				else if ($d->i > 1) $last_modify = "{$d->i} minutes ago";
+				else if ($d->s >= 1) $last_modify = "{$d->s} seconds ago";
+				else if ($d->s == 0) $last_modify = "right now";
+				else $last_modify = "at ".date('d.m.y, H:i')." (".date_default_timezone_get().")";
+				$keyb[] = [ ["⏫ {$file}", "add {$file}"] ];
+				$str .= "\n  - <code>$file</code> <i>({$size}, last modified {$last_modify})</i>";
+			}
+			$keyb = ikb($keyb);
+			@$bot->act($str, ['reply_to_message_id' => $message_id, 'reply_markup' => $keyb]);
 		}
 	}
 }
