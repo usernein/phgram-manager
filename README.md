@@ -59,4 +59,3 @@ You can active the "show_rmdir" feature (a dangerous button in /list for recursi
 ## Find us
 * Telegram channel: [@phgrammanager](https://t.me/phgrammanager)
 * Developer (telegram): [@usernein](https://t.me/usernein)
-* Logo by [@AlissonLauffer](https://t.me/AlissonLauffer)
