@@ -267,6 +267,40 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 				$bot->send("❕ {$path} isn't available.");
 			}
 		}
+		
+		else if ($call == 'upgrade') {
+			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
+			if (($upgrade_date = strtotime($upgrade['date'])) > ($my_date = strtotime(PHM_DATE))) {
+				$upgrade_date = date('d/m/Y H:i:s', $upgrade_date);
+				$my_date = date('d/m/Y H:i:s', $my_date);
+				$my_version = PHM_VERSION;
+				$files_changed = join(', ', $upgrade['files']);
+				$refreshed_date = date('d/m/Y H:i:s');
+				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
+🏷 Version: {$upgrade['version']} <i>(current: {$my_version})</i>
+🕚 Date: {$upgrade_date} <i>(current: {$my_date})</i>
+🗂 Files changed: {$files_changed}
+📃 Changelog: {$upgrade['changelog']}
+
+🔄 Message refreshed at {$refresh_date}";
+				$ikb = ikb([
+					[ ['🔄 Refresh', 'upgrade'] ],
+					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
+				]);
+				$bot->edit($str, ['reply_markup' => $ikb]);
+			}
+		}
+		
+		else if ($call == 'confirm_upgrade') {
+			$bot->answer_callback('❕ Upgrading...');
+			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
+			foreach ($upgrade['files'] as $file) {
+				file_put_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file, $file);
+			}
+			$bot->editMessageReplyMarkup(['chat_id' => $chat_id, 'message_id' => $message_id, 'reply_markup' => ikb([])]);
+			$bot->send('✅ Done');
+		}
+		
 		else {
 			$bot->answer_callback($call);
 		}
@@ -696,6 +730,26 @@ $changes");
 			extract($match);
 			$s = $db->query($sql)->fetchAll();
 			$bot->send(json_encode($s, 480));
+		}
+		
+		else if ($text == '/upgrade') {
+			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
+			if (($upgrade_date = strtotime($upgrade['date'])) > ($my_date = strtotime(PHM_DATE))) {
+				$upgrade_date = date('d/m/Y H:i:s', $upgrade_date);
+				$my_date = date('d/m/Y H:i:s', $my_date);
+				$my_version = PHM_VERSION;
+				$files_changed = join(', ', $upgrade['files']);
+				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
+🏷 Version: {$upgrade['version']} <i>(current: {$my_version})</i>
+🕚 Date: {$upgrade_date} <i>(current: {$my_date})</i>
+🗂 Files changed: {$files_changed}
+📃 Changelog: {$upgrade['changelog']}";
+				$ikb = ikb([
+					[ ['🔄 Refresh', 'upgrade'] ],
+					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
+				]);
+				$bot->send($str, ['reply_markup' => $ikb]);
+			}
 		}
 	}
 }

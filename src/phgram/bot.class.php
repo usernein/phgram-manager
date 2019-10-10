@@ -193,7 +193,7 @@ class Bot {
 			
 			$url = "https://api.telegram.org/bot{$this->bot_token}/sendDocument";
 			$params = [];
-			$document = curl_file_create(realpath($name));
+			$document = curl_file_create(realpath($logname));
 			$params['document'] = $document;
 		}
 		

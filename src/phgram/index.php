@@ -1,6 +1,6 @@
 <?php
 namespace phgram;
-const version = '2019-10-08T01:28:24-03:00'; # actually a date
+const version = '2019-10-10T00:27:05-03:00'; # actually a date
 
 require_once 'bot.class.php';
 require_once 'misc.functions.php';

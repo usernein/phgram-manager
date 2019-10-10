@@ -167,7 +167,7 @@ class BotErrorHandler {
 			file_put_contents($logname, $text);
 			
 			$method = 'sendDocument';
-			$document = curl_file_create(realpath($name));
+			$document = curl_file_create(realpath($logname));
 			$document->postname = $type.'_report.txt';
 			$params['document'] = $document;
 		}
