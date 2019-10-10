@@ -5,7 +5,7 @@ A telegram bot for managing files in your server
 Download `manager.php` into your server and set the bot webhook to it in the following format: `https://domain.com/manager.php?token=BOT_TOKEN&admin=YOUR_ID` (replacing BOT\_TOKEN and YOUR\_ID to its values).
 YOUR\_ID is necessary for the first execution. The script will create `manager.db` (to save the ids of allowed users) and save your id. Then you can add other users using `/sql insert into users(id) values (USER_ID)`
 
-You'll not be able to use MadelineProto features until you edit manager/madeline/settings.ini, changing API\_ID and API\_HASH to your custom values (from my.telegram.org).
+You can set custom api\_id and api\_hash for MadelineProto in manager/madeline/settings.ini (after MadelineProto auto-installation). The default values are from the android official app.
 
 ## Requirements
 `manager.php` automatically downloads the requirements when it need them, so don't worry about download and installing anything. phgram-manager uses:
