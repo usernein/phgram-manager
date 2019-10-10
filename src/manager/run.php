@@ -50,7 +50,8 @@ if (!$db_exists) {
         waiting_for TEXT NULL DEFAULT NULL,
         waiting_param TEXT NULL DEFAULT NULL,
         waiting_back TEXT NULL DEFAULT NULL,
-		show_rmdir INTEGER NULL DEFAULT 0
+		show_rmdir INTEGER NULL DEFAULT 0,
+		ask_upload INTEGER NULL DEFAULT 1
 	);");
 }
 

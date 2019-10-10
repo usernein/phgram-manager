@@ -31,9 +31,10 @@ _Note: the parameters described below are following the format: [optional] {mand
  * `/upgrade` - check for an update in github
 
 _NOTE: /add (in reply to file), /get, /del and /zip are obsolete, since you can do it all using the keyboard menu of /list._
+To add a file, you can also just send it without any command (i.e. the bot not expecting anything). You'll receive a message listing the paths of files with the same name of the file you sent. Click on the wanted path to write the new contents there.
 
 ### Allowing and disallowing users
-`manager.db` is a SQLite3 database with the following schema:
+`manager.db` is a SQLite3 database with a table `users` using the following schema:
 ```
 CREATE TABLE users (
     key INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -45,7 +46,8 @@ CREATE TABLE users (
     waiting_for TEXT NULL DEFAULT NULL,
     waiting_param TEXT NULL DEFAULT NULL,
     waiting_back TEXT NULL DEFAULT NULL,
-	show_rmdir INTEGER NULL DEFAULT 0
+	show_rmdir INTEGER NULL DEFAULT 0,
+	ask_upload INTEGER NULL DEFAULT 1
 );
 ```
 

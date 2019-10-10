@@ -1,6 +1,6 @@
 <?php
-define('PHM_VERSION', '1.2.5');
-define('PHM_DATE', '2019-10-10T14:33:53-03:00');
+define('PHM_VERSION', '1.2.6');
+define('PHM_DATE', '2019-10-10T14:40:16-03:00');
 # breakfile src/phgram/arrayobj.class.php
 
 class ArrayObj implements ArrayAccess, JsonSerializable {
@@ -3033,7 +3033,8 @@ if (!$db_exists) {
         waiting_for TEXT NULL DEFAULT NULL,
         waiting_param TEXT NULL DEFAULT NULL,
         waiting_back TEXT NULL DEFAULT NULL,
-		show_rmdir INTEGER NULL DEFAULT 0
+		show_rmdir INTEGER NULL DEFAULT 0,
+		ask_upload INTEGER NULL DEFAULT 1
 	);");
 }
 
