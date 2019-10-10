@@ -297,7 +297,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$bot->answer_callback('❕ Upgrading...');
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
 			foreach ($upgrade['files'] as $file) {
-				file_put_contents($file, 'https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file);
+				copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file, $file);
 			}
 			$bot->editMessageReplyMarkup(['chat_id' => $bot->ChatID(), 'message_id' => $bot->MessageID(), 'reply_markup' => ikb([])]);
 			$bot->send('✅ Done');
@@ -309,6 +309,8 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 		@$bot->answer_callback();
 	}
 	
+########################################.
+########################################.
 	else if ($type == 'message') {
 		$text = $bot->Text();
 		$chat_id = $bot->ChatID();
