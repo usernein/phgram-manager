@@ -321,18 +321,15 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$msg = $bot->send('❕ Upgrading...');
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
 			$my_date_timestamp = strtotime(PHM_DATE);
-			$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
-				return $filemtime > $my_date_timestamp;
-			});
 			$str = "\n";
-			foreach ($files_changed as $filename => $filemtime) {
+			foreach ($upgrade['files'] as $filename) {
 				$success = $str."\n- \"$filename\" updated!";
 				$fail = $str."\n- Failed to update \"$filename\"";
 				$msg->append(copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$filename, $filename)? $success : $fail);
 				$str = '';
 			}
 			$bot->editMessageReplyMarkup(['chat_id' => $bot->ChatID(), 'message_id' => $bot->MessageID(), 'reply_markup' => i_ikb([])]);
-			$bot->append("\n\n✅ Done");
+			$msg->append("\n\n✅ Done");
 		}
 		
 		else if (preg_match('#^add (?<path>.+)#', $call, $match)) {
