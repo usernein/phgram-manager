@@ -9,8 +9,8 @@ require 'phgram.phar';
 use \phgram\{Bot, BotErrorHandler, ArrayObj};
 use function \phgram\{ikb, show};
 Bot::closeConnection();
-define('PHM_VERSION', '1.3.17');
-define('PHM_DATE', '2019-11-09T17:40:01-03:00');
+define('PHM_VERSION', '1.3.18');
+define('PHM_DATE', '2019-11-09T17:43:20-03:00');
 # breakfile src/config.php
 
 $cfg = new stdClass();
