@@ -9,8 +9,8 @@ require 'phgram.phar';
 use \phgram\{Bot, BotErrorHandler, ArrayObj};
 use function \phgram\{ikb, show};
 Bot::closeConnection();
-define('PHM_VERSION', '1.3.13');
-define('PHM_DATE', '2019-11-09T17:13:12-03:00');
+define('PHM_VERSION', '1.3.14');
+define('PHM_DATE', '2019-11-09T17:14:56-03:00');
 # breakfile src/config.php
 
 $cfg = new stdClass();
@@ -1590,7 +1590,7 @@ $changes");
 				$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
 					return $filemtime > $my_date_timestamp;
 				});
-				$files_changed = join(', ', $files_changed) ?: '---';
+				$files_changed = join(', ', array_keys($files_changed)) ?: '---';
 				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
 🏷 <b>Version</b>: {$upgrade['version']} <i>(current: {$my_version})</i>
 🕚 <b>Date</b>: {$upgrade_date} <i>(current: {$my_date})</i>

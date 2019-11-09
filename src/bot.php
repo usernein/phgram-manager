@@ -877,7 +877,7 @@ $changes");
 				$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
 					return $filemtime > $my_date_timestamp;
 				});
-				$files_changed = join(', ', $files_changed) ?: '---';
+				$files_changed = join(', ', array_keys($files_changed)) ?: '---';
 				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
 🏷 <b>Version</b>: {$upgrade['version']} <i>(current: {$my_version})</i>
 🕚 <b>Date</b>: {$upgrade_date} <i>(current: {$my_date})</i>
