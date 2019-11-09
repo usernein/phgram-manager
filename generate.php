@@ -45,7 +45,7 @@ $files = [
 $last_update = strtotime($current['date']);
 foreach ($files as $file) {
 	if (filemtime($file) > $last_update) {
-		$update_str .= "\nfile[] = ".basename($file);
+		$update_str .= "\nfiles[] = ".basename($file);
 	}
 	$contents = file_get_contents($file);
 	$contents = str_replace(['<?php', '<?', '?>'], '', $contents);
