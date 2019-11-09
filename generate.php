@@ -43,7 +43,8 @@ $files = [
 ];
 
 foreach ($files as $file) {
-	$update_str .= "\nfiles['".basename($file)."'] = ".filemtime($file);
+	$update_str .= "\nfilemtimes['".basename($file)."'] = ".filemtime($file)."
+files[] = ".basename($file);
 	$contents = file_get_contents($file);
 	$contents = str_replace(['<?php', '<?', '?>'], '', $contents);
 	$str .= "# breakfile {$file}\n{$contents}\n\n";

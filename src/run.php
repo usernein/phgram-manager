@@ -49,8 +49,19 @@ if (!$db_exists) {
 		show_rmdir INTEGER NULL DEFAULT 0,
 		ask_upload INTEGER NULL DEFAULT 1
 	);");
+	$db->query("CREATE TABLE call (
+		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+		call TEXT NOT NULL,
+		time INTEGER NOT NULL
+	);");
 }
-
+if (strtotime(PHM_DATE) < strtotime('09.11.2019 19:25:00')) {
+	$db->query("CREATE TABLE IF NOT EXISTS call (
+		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+		call TEXT NOT NULL,
+		time INTEGER NOT NULL
+	);");
+}
 $lang = new stdClass();
 
 # Protection anti-intruders
