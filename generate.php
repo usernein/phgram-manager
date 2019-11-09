@@ -1,4 +1,5 @@
 <?php
+$argv = [$argv[0], $argv[2], $argv[1]];
 $current = parse_ini_file('update/update.ini');
 if (!isset($argv[1]) || $current['version'] == $argv[1]) {
 	$cases = explode('.', $current['version']);
