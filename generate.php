@@ -12,6 +12,7 @@ if (!isset($argv[2])) {
 $update_str = "version = %s
 date = \"%s\"
 changelog = \"{$argv[2]}\"
+files[] = manager.php
 ";
 date_default_timezone_set('America/Belem');
 $date = new DateTime('now', (new DateTimeZone('America/Belem')));
@@ -44,8 +45,7 @@ $files = [
 ];
 
 foreach ($files as $file) {
-	$update_str .= "\nfilemtimes['".basename($file)."'] = ".filemtime($file)."
-files[] = ".basename($file);
+	$update_str .= "\nfilemtimes['".basename($file)."'] = ".filemtime($file);
 	$contents = file_get_contents($file);
 	$contents = str_replace(['<?php', '<?', '?>'], '', $contents);
 	$str .= "# breakfile {$file}\n{$contents}\n\n";
