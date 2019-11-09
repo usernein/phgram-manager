@@ -883,6 +883,10 @@ $changes");
 🕚 <b>Date</b>: {$upgrade_date} <i>(current: {$my_date})</i>
 🗂 <b>Files changed</b>: {$files_changed}
 📃 <b>Changelog</b>: {$upgrade['changelog']}";
+				
+				if ($bot->update_type == 'callback_query') {
+					$str .= "\n\n🔄 Message refreshed at ".date('d/m/Y H:i:s');
+				}
 				$i_ikb = i_ikb([
 					[ ['🔄 Refresh', 'upgrade'] ],
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],

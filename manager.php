@@ -9,8 +9,8 @@ require 'phgram.phar';
 use \phgram\{Bot, BotErrorHandler, ArrayObj};
 use function \phgram\{ikb, show};
 Bot::closeConnection();
-define('PHM_VERSION', '1.3.9');
-define('PHM_DATE', '2019-11-09T16:36:52-03:00');
+define('PHM_VERSION', '1.3.10');
+define('PHM_DATE', '2019-11-09T16:47:23-03:00');
 # breakfile src/config.php
 
 $cfg = new stdClass();
@@ -1596,6 +1596,10 @@ $changes");
 🕚 <b>Date</b>: {$upgrade_date} <i>(current: {$my_date})</i>
 🗂 <b>Files changed</b>: {$files_changed}
 📃 <b>Changelog</b>: {$upgrade['changelog']}";
+				
+				if ($bot->update_type == 'callback_query') {
+					$str .= "\n\n🔄 Message refreshed at ".date('d/m/Y H:i:s');
+				}
 				$i_ikb = i_ikb([
 					[ ['🔄 Refresh', 'upgrade'] ],
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
