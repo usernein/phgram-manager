@@ -321,7 +321,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$msg = $bot->send('❕ Upgrading...');
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
 			$my_date_timestamp = strtotime(PHM_DATE);
-			$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) {
+			$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
 				return $filemtime > $my_date_timestamp;
 			});
 			$str = "\n";
@@ -874,7 +874,7 @@ $changes");
 				$upgrade_date = date('d/m/Y H:i:s', $upgrade_date);
 				$my_date = date('d/m/Y H:i:s', $my_date_timestamp);
 				$my_version = PHM_VERSION;
-				$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) {
+				$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
 					return $filemtime > $my_date_timestamp;
 				});
 				$files_changed = join(', ', $files_changed) ?: '---';

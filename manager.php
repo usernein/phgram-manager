@@ -9,8 +9,8 @@ require 'phgram.phar';
 use \phgram\{Bot, BotErrorHandler, ArrayObj};
 use function \phgram\{ikb, show};
 Bot::closeConnection();
-define('PHM_VERSION', '1.3.12');
-define('PHM_DATE', '2019-11-09T17:06:23-03:00');
+define('PHM_VERSION', '1.3.13');
+define('PHM_DATE', '2019-11-09T17:13:12-03:00');
 # breakfile src/config.php
 
 $cfg = new stdClass();
@@ -1034,7 +1034,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$msg = $bot->send('❕ Upgrading...');
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
 			$my_date_timestamp = strtotime(PHM_DATE);
-			$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) {
+			$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
 				return $filemtime > $my_date_timestamp;
 			});
 			$str = "\n";
@@ -1587,7 +1587,7 @@ $changes");
 				$upgrade_date = date('d/m/Y H:i:s', $upgrade_date);
 				$my_date = date('d/m/Y H:i:s', $my_date_timestamp);
 				$my_version = PHM_VERSION;
-				$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) {
+				$files_changed = array_filter($upgrade['filemtimes'], function ($filemtime) use ($my_date_timestamp) {
 					return $filemtime > $my_date_timestamp;
 				});
 				$files_changed = join(', ', $files_changed) ?: '---';
