@@ -1,49 +1,59 @@
 <?php
-if (!isset($argv[1])) exit("Pass changelog\n");
-if (!isset($argv[2])) exit("Pass version\n");
-$update = parse_ini_file('update/update.ini');
-if ($update['version'] == $argv[2]) exit("Can't use same version.\n");
-
-$update = "version = %s
+$current = parse_ini_file('update/update.ini');
+if (!isset($argv[1]) || $current['version'] == $argv[1]) {
+	$cases = explode('.', $current['version']);
+	$cases[2]++;
+	$argv[1] = join('.', $cases);
+}
+if (!isset($argv[2])) {
+	$argv[2] = $current['changelog'];
+}
+$update_str = "version = %s
 date = \"%s\"
-files[] = manager.php
-changelog = \"{$argv[1]}\"
+changelog = \"{$argv[2]}\"
 ";
 date_default_timezone_set('America/Belem');
-$date = new DateTime('now');
+$date = new DateTime('now', (new DateTimeZone('America/Belem')));
 $date_str = $date->format(DateTime::RFC3339);
-$update = sprintf($update, $argv[2], $date_str);
-file_put_contents('update/update.ini', $update);
+
+$update_str = sprintf($update_str, $argv[1], $date_str);
+file_put_contents('update/update.ini', $update_str);
+$update = parse_ini_string($update_str);
 
 $str = "<?php
-define('PHM_VERSION', '{$argv[2]}');
+# Urgent stuff
+session_write_close();
+set_time_limit(10*60);
+if (!file_exists('phgram.phar')) {
+	copy('https://raw.githubusercontent.com/usernein/phgram/master/phgram.phar', 'phgram.phar');
+}
+require 'phgram.phar';
+use \phgram\{Bot, BotErrorHandler, ArrayObj};
+use function \phgram\{ikb, show};
+Bot::closeConnection();
+define('PHM_VERSION', '{$update['version']}');
 define('PHM_DATE', '{$date_str}');
 ";
-$glob = glob('src/phgram/*');
 
-foreach ($glob as $file) {
-	if (basename($file) == 'index.php') continue;
-	echo $file."\n";
-	$contents = file_get_contents($file);
-	$contents = str_replace(['<?php', '<?', '?>'], '', $contents);
-	$name = ($file);
-	$str .= "# breakfile {$name}\n{$contents}\n\n";
-}
-
-$glob = [
-	'config.php',
-	'functions.php',
-	'bot.php',
-	'run.php'
+$files = [
+	'src/config.php',
+	'src/functions.php',
+	'src/bot.php',
+	'src/run.php'
 ];
 
-foreach ($glob as $file) {
-	$file = 'src/manager/'.$file;
-	echo $file."\n";
+$last_update = strtotime($current['date']);
+foreach ($files as $file) {
+	if (filemtime($file) > $last_update) {
+		$update_str .= "\nfile[] = ".basename($file);
+	}
 	$contents = file_get_contents($file);
 	$contents = str_replace(['<?php', '<?', '?>'], '', $contents);
-	$name = ($file);
-	$str .= "# breakfile {$name}\n{$contents}\n\n";
+	$str .= "# breakfile {$file}\n{$contents}\n\n";
 }
 
+file_put_contents('update/update.ini', $update_str);
 file_put_contents('manager.php', $str);
+
+# Share the file through Termux
+exec('termux-open manager.php --send --chooser');

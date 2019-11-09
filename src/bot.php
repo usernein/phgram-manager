@@ -5,12 +5,53 @@ function handle($bot, $db, $lang, $args) {
 	$type = $bot->getUpdateType();
 	$data = array_values($bot->getData())[1];
 	
-	if ($type == 'callback_query') {
+	if ($type == 'inline_query') {
+		$iq = $bot->InlineQuery();
+		$query = $iq['query'];
+		
+		if (preg_match('#^[\w\.]+$#', $query)) {
+			$results = [
+				['id' => $query, 'thumb_url' => 'https://souunick.com/thumbs/search.png', "🔎 Search for $query in the files...", "🔎 <i>Searching</i>", ikb([ [ ['...', 'im searching boii'] ] ])],
+			];
+			$results = toInline($results);
+			$bot->answer_inline($results);
+		} else {
+			$results = [
+				['thumb_url' => 'https://souunick.com/thumbs/search.png', "Invalid query :(", "Only <b>letters, numbers, underscore and dot</b> characters are accepted for searching."],
+			];
+			$results = toInline($results);
+			$bot->answer_inline($results);
+		}
+	}
+	else if ($type == 'chosen_inline_result') {
+		if (!isset($data['inline_message_id'])) return;
+		$inline_id = $data['inline_message_id'];
+		$query = $data['result_id'];
+		if (!$query) return;
+		$user_id = $bot->UserID();
+		
+		$files = rglob($query);
+		$keyb = [];
+		foreach ($files as $file) {
+			$dir = is_dir($file);
+			$keyb[] = [ [($dir? "📁 " : "📃 ").$file, $dir? "list $file" : "file $file"] ];
+		}
+		
+		$query = htmlspecialchars($query);
+		if ($files) {
+			$keyb = i_ikb($keyb);
+			$bot->edit("🗂 <b>Results for</b> \"<code>$query</code>\":", ['inline_message_id' => $inline_id, 'reply_markup' => $keyb]);
+		} else {
+			$bot->edit("<b>No results for</b> \"<code>$query</code>\" :(", ['inline_message_id' => $inline_id]);
+		}
+	}
+	else if ($type == 'callback_query') {
 		$call = $data['data'];
 		$call_id = $data['id'];
 		$user_id = $data['from']['id'];
 		$user = $db->query("SELECT * FROM users WHERE id={$user_id}")->fetch();
 		$message_id = $bot->MessageID();
+		$call = realcall($call);
 		
 		if (preg_match('#^list (?<path>.+)#', $call, $match)) {
 			$path = $match['path'] ?? '.';
@@ -52,7 +93,7 @@ function handle($bot, $db, $lang, $args) {
 				$options[] = [ ['..', "list {$path}/.."] ];
 			}
 			
-			$keyboard = ikb($options);
+			$keyboard = i_ikb($options);
 			$bot->edit("📁 <b>Listing</b> <code>{$path}</code>", ['reply_markup' => $keyboard]);
 		}
 	
@@ -109,7 +150,7 @@ function handle($bot, $db, $lang, $args) {
 				$lines[] = [ ['⏬🖼', "download_img {$file}"] ];
 			}
 			$lines[] = [ ['«', "list {$dir}"] ];
-			$keyb = ikb($lines);
+			$keyb = i_ikb($lines);
 			$bot->edit($str, ['reply_markup' => $keyb]);
 		}
 		
@@ -175,7 +216,7 @@ function handle($bot, $db, $lang, $args) {
 		
 		else if (preg_match('#^mkdir (?<dir>.+)#', $call, $match)) {
 			$dir = $match['dir'];
-			$keyboard = ikb([
+			$keyboard = i_ikb([
 				[ ['❌ Cancel', "cancel mkdir {$dir}"] ]
 			]);
 			$path = $dir;
@@ -203,7 +244,7 @@ function handle($bot, $db, $lang, $args) {
 				$db->query("UPDATE users SET auto_upload=1, upload_path='{$dir}' WHERE id={$user_id}");
 				load_upload:
 				$php_check_active = $db->querySingle("SELECT php_check FROM users WHERE id={$user_id}");
-				$keyboard = ikb([
+				$keyboard = i_ikb([
 					[ ['❌ Stop', "cancel auto-upload {$dir}"] ],
 					[ [($php_check_active? '❌ Dis' : '✔ En').'able php linter', "switch php_check {$dir}"] ],
 				]);
@@ -226,10 +267,10 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 		
 		else if (preg_match('#^rmdir (?<path>.+)#', $call, $match)) {
 			$path = $match['path'];
-			$text = "Are you sure you want to delete this entire directory? This action is recursive (will also delete all subcontents) and irreversible.";
-			$keyb = ikb([
-				[ ['Yes', "confirm_rmdir $path"] ],
-				[ ['No', "list $path"] ]
+			$text = "‼️ <b>Are you sure you want to delete this entire directory? This action is recursive (will also delete all subcontents) and irreversible.</b>";
+			$keyb = i_ikb([
+				[ ['🗑 Yes, delete the folder!', "confirm_rmdir $path"] ],
+				[ ['📁 No, cancel please.', "list $path"] ]
 			]);
 			$bot->edit($text, ['reply_markup' => $keyb]);
 		}
@@ -242,7 +283,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			$name = $zip->filename;
 			$zip->close();
 			$mp = new MPSend($bot->bot_token);
-			$mp->doc($name);
+			$mp->doc($name, ['caption' => "📦 Backup of $path"]);
 			unlink($name);
 			try {
 				delTree($path);
@@ -286,11 +327,11 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 📃 Changelog: {$upgrade['changelog']}
 
 🔄 Message refreshed at {$refresh_date}";
-				$ikb = ikb([
+				$i_ikb = i_ikb([
 					[ ['🔄 Refresh', 'upgrade'] ],
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
-				$bot->edit($str, ['reply_markup' => $ikb]);
+				$bot->edit($str, ['reply_markup' => $i_ikb]);
 			} else {
 				$bot->edit('✅ Already up-to-date!');
 			}
@@ -302,7 +343,7 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 			foreach ($upgrade['files'] as $file) {
 				copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file, $file);
 			}
-			$bot->editMessageReplyMarkup(['chat_id' => $bot->ChatID(), 'message_id' => $bot->MessageID(), 'reply_markup' => ikb([])]);
+			$bot->editMessageReplyMarkup(['chat_id' => $bot->ChatID(), 'message_id' => $bot->MessageID(), 'reply_markup' => i_ikb([])]);
 			$bot->send('✅ Done');
 		}
 		
@@ -335,12 +376,12 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 					$contents = @file_get_contents($name);
 				}
 				
-				if ($db->querySingle("SELECT php_check FROM users WHERE id={$user_id}") && preg_match('#\.php$#', $name)) {
+				if ($db->querySingle("SELECT php_check FROM users WHERE id={$user_id}") && preg_match('#\.php$#', $file_name)) {
 					$supported = shell_exec('php -r "echo \'a\';"') == 'a';
 					if ($supported) {
 						$result = shell_exec("php -l {$name}") ?? '';
 						if ($result && stripos($result, 'errors parsing') !== false) {
-							@$bot->reply($result, ['parse_mode' => null]);
+							@$bot->answer_callback($result, ['show_alert' => true]);
 							if ($oldB) {
 								file_put_contents($name, $old_content);
 							} else {
@@ -367,7 +408,7 @@ Bytes difference: {$diff} ({$diffSize})
 $changes", ['show_alert' => true]);
 				goto show_find_paths_add;
 			} catch (Throwable $t) {
-				$bot->reply("Failed: $t");
+				$bot->indoc("Failed: {$t->getMessage()} on {$t->getFile()} at {$t->getLine()}\n\n{$t->getTraceAsString()}");
 			}
 		}
 		
@@ -387,6 +428,9 @@ $changes", ['show_alert' => true]);
 		$replied = $bot->ReplyToMessage();
 		$reply = $replied['text'] ?? $replied['caption'] ?? null;
 		$user = $db->query("SELECT * FROM users WHERE id={$user_id}")->fetch();
+		$botun = $bot->getMe()->username;
+		
+		$text = preg_replace('#^(/\w+)@'.$botun.'#isu', '$1', $text);
 		
 		if ($user['waiting_for'] != NULL) {
 			$waiting_for = $user['waiting_for'];
@@ -395,9 +439,9 @@ $changes", ['show_alert' => true]);
 			
 			if ($text == '/cancel') {
 				$db->query("UPDATE users SET waiting_for='', waiting_param='', waiting_back='' WHERE id={$user_id}");
-				$keyboard = ikb([]);
+				$keyboard = i_ikb([]);
 				if ($waiting_back) {
-					$keyboard = ikb([
+					$keyboard = i_ikb([
 						[ ['«', $waiting_back] ],
 					]);
 				}
@@ -495,7 +539,7 @@ $changes", ['show_alert' => true]);
 					}
 					
 					$dir = $user['upload_path'];
-					$keyboard = ikb([
+					$keyboard = i_ikb([
 						[ ['❌ Stop auto-upload', "cancel auto-upload {$dir}"] ],
 					]);
 					
@@ -714,7 +758,7 @@ $changes");
 					$options[] = [ ['..', "list {$path}/.."] ];
 				}
 				
-				$keyboard = ikb($options);
+				$keyboard = i_ikb($options);
 				$bot->send("📁 <b>Listing {$path}</b>", ['reply_markup' => $keyboard]);
 			}
 		}
@@ -793,16 +837,34 @@ $changes");
 		else if (preg_match('#^/unzip (?<path>.+)#', $text, $match)) {
 			$path = $match['path'];
 			if (isset($replied['document'])) {
+				$mp = new MPSend($bot->bot_token);
+				$msg = $mp->mp->messages->getMessages(['id' => [$replied->message_id]]);
+				$media = $msg['messages'][0]['media'];
+				$file_id = array_values($media)[1]['id'];
+				$info = $mp->mp->get_download_info($media);
+				$filename = "{$info['name']}{$info['ext']}";
+				if (isset($info['MessageMedia']['document']['attributes'])) {
+					$attributes = array_column($info['MessageMedia']['document']['attributes'], null, '_');
+					if (isset($attributes['documentAttributeFilename'])) {
+						$filename = $attributes['documentAttributeFilename']['file_name'];
+					}
+				}
+		
+				$name = $replied->find('file_name') ?? $filename;
+				
 				$file = $replied['document'];
 				if (preg_match('#\.zip$#', $file->file_name)) {
 					$new_filename = time() . $file->file_name;
-					$bot->download_file($file->file_id, $new_filename);
+					$res = $mp->get($media, $new_filename);
+					if (!$res['ok']) {
+						return $bot->send('Failed');
+					}
 					unzipDir($new_filename, $path);
 					unlink($new_filename);
-					$keyb = ikb([
-						[ ['Open the directory', "list $path"] ],
+					$keyb = i_ikb([
+						[ ['📂 Open the directory', "list $path"] ],
 					]);
-					$bot->send("Done!", ['reply_markup' => $keyb]);
+					$bot->send("✅ Done!", ['reply_markup' => $keyb]);
 				} else {
 					$bot->send("Reply to a .zip file!");
 				}
@@ -829,11 +891,11 @@ $changes");
 🕚 Date: {$upgrade_date} <i>(current: {$my_date})</i>
 🗂 Files changed: {$files_changed}
 📃 Changelog: {$upgrade['changelog']}";
-				$ikb = ikb([
+				$i_ikb = i_ikb([
 					[ ['🔄 Refresh', 'upgrade'] ],
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
-				$bot->send($str, ['reply_markup' => $ikb]);
+				$bot->send($str, ['reply_markup' => $i_ikb]);
 			} else {
 				$bot->send('✅ Already up-to-date!');
 			}
@@ -847,11 +909,11 @@ $changes");
 			show_find_paths_add:
 			$files = rglob($file_name);
 			if (!$files) {
-				$ikb = ikb([
+				$i_ikb = i_ikb([
 					[ ['⏫ Add in the current directory', "add {$file_name}"] ]
 				]);
 				$dir = __DIR__;
-				return @$bot->act("There's no files named \"{$doc->file_name}\" under $dir.", ['reply_to_message_id' => $message_id, 'reply_markup' => $ikb]);
+				return @$bot->act("There's no files named \"{$doc->file_name}\" under $dir.", ['reply_to_message_id' => $message_id, 'reply_markup' => $i_ikb]);
 			}
 			$count = count($files);
 			$str = "🔎 {$file_name} has been found in {$count} paths:\n";
@@ -872,7 +934,7 @@ $changes");
 				$keyb[] = [ ["⏫ {$file}", "add {$file}"] ];
 				$str .= "\n  - <code>$file</code> <i>({$size}, last modified {$last_modify})</i>";
 			}
-			$keyb = ikb($keyb);
+			$keyb = i_ikb($keyb);
 			@$bot->act($str, ['reply_to_message_id' => $message_id, 'reply_markup' => $keyb]);
 		}
 	}

@@ -1,12 +1,9 @@
 <?php
-# Urgent stuff
-Bot::respondWebhook([], 10*60);
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
 ini_set('log_errors', 1);
 ini_set('error_log', 'error_log.log');
-session_write_close();
 
 # Config
 $cfg->bot = $_GET['token'] ?? $cfg->bot;
@@ -33,7 +30,6 @@ class MyPDO extends PDO {
 
 # Header
 $bot = new Bot($cfg->bot, $cfg->admin);
-
 $db_exists = file_exists('manager.db');
 $db = new MyPDO('sqlite:manager.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
@@ -61,7 +57,7 @@ $lang = new stdClass();
 $user_id = $bot->UserID() ?? 0;
 $is_registered = $db->querySingle("SELECT 1 FROM users WHERE id={$user_id}");
 $is_admin = in_array($user_id, $cfg->admin);
-if (!$is_registered && !$is_admin) {
+if (!$user_id || (!$is_registered && !$is_admin)) {
 	exit('Unauthorized user');
 }
 if ($is_admin && !$is_registered) {

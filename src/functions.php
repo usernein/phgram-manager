@@ -189,7 +189,7 @@ class MPSend {
 			$name = $postname;
 			$msg_text = "Uploading <i>{$realname}</i> ({$size}) as <i>{$name}</i>...";
 		}
-		$msg = $bot->send($msg_text);
+		$msg = $bot->send($msg_text, ['disable_notification' => true]);
 		$start_time = microtime(1);
 		$progress = function ($progress) use ($name, $msg_text, $msg, $size, $start_time, $filesize) {
 			static $last_time = 0;
@@ -247,7 +247,7 @@ class MPSend {
 			$name = $postname;
 			$msg_text = "Uploading <i>{$realname}</i> ({$size}) as <i>{$name}</i>...";
 		}
-		$msg = $bot->send($msg_text);
+		$msg = $bot->send($msg_text, ['disable_notification' => true]);
 		$start_time = microtime(1);
 		$progress = function ($progress) use ($name, $msg_text, $msg, $size, $start_time, $filesize) {
 			static $last_time = 0;
@@ -301,7 +301,7 @@ class MPSend {
 			$name = $postname;
 			$msg_text = "Uploading <i>{$realname}</i> ({$size}) as <i>{$name}</i>...";
 		}
-		$msg = $bot->send($msg_text);
+		$msg = $bot->send($msg_text, ['disable_notification' => true]);
 		$start_time = microtime(1);
 		$progress = function ($progress) use ($name, $msg_text, $msg, $size, $start_time, $filesize) {
 			static $last_time = 0;
@@ -482,6 +482,7 @@ function glob_recursive($pattern, $flags = 0, $startdir = '') {
 	sort($files);
 	return $files;
 }
+/*
 function folderToZip($folder, &$zipFile, $exclusiveLength, array $except = []) {
 	$files = glob_recursive($folder.'/*');
 	$except = array_merge($except, ['..', '.']);
@@ -509,8 +510,46 @@ function zipDir($sourcePath, $outZipPath, array $except = []) {
 	folderToZip($sourcePath, $zip, strlen($sourcePath), $except); 
 	#$zip->close();
 	return $zip;
-}
+}*/
+function zipDir($source, $destination, $except = []) {
+	if (!extension_loaded('zip') || !file_exists($source)) {
+		return false;
+	}
 
+	$zip = new ZipArchive();
+	if (file_exists($destination)) unlink($destination);
+	if (!$zip->open($destination, ZIPARCHIVE::CREATE)) {
+		return false;
+	}
+
+	$source = str_replace('\\', '/', realpath($source));
+
+	if (is_dir($source) === true) {
+		$files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source), RecursiveIteratorIterator::SELF_FIRST);
+
+		foreach ($files as $file) {
+			$file = str_replace('\\', '/', $file);
+
+			// Ignore "." and ".." folders
+			if(in_array(substr($file, strrpos($file, '/')+1), array_merge($except, ['.', '..'])) )
+				continue;
+
+			$file = realpath($file);
+
+			if (is_dir($file) === true) {
+				$zip->addEmptyDir(str_replace($source . '/', '', $file . '/'));
+			}
+			else if (is_file($file) === true) {
+				$zip->addFromString(str_replace($source . '/', '', $file), file_get_contents($file));
+			}
+		}
+	}
+	else if (is_file($source) === true) {
+		$zip->addFromString(basename($source), file_get_contents($source));
+	}
+
+	return $zip;
+}
 function unzipDir($zipPath, $outDirPath) {
 	if (@file_exists($outDirPath) != true) {
 		mkdir($outDirPath, 0777, true);
@@ -569,4 +608,69 @@ function rglob($pattern, $flags = 0) {
 		$files = array_merge($files, rglob($dir.'/'.basename($pattern), $flags));
 	}
 	return $files;
+}
+function i_ikb(array $options, $encode = true) {
+	global $db;
+	$lines = [];
+	$options = ($options);
+	foreach ($options as $line_pos => $line_buttons) {
+		$lines[$line_pos] = [];
+		foreach ($line_buttons as $button_pos => $button) {
+			if (strlen($button[1]) > 64) {
+				$db->prepare('INSERT INTO call (call, time) VALUES (?, ?)')->execute([$button[1], time()]);
+				$button[1] = $db->lastInsertId();
+			}
+			$lines[$line_pos][$button_pos] = \phgram\btn(...$button);
+		}
+	}
+	$replyMarkup = [
+		'inline_keyboard' => array_values($lines),
+	];
+	return ($encode? json_encode($replyMarkup, 480) : $replyMarkup);
+}
+function realcall($call) {
+	global $db;
+	$stmt = $db->prepare('select call from call where id=?');
+	$stmt->execute([$call]);
+	$fetch = $stmt->fetch();
+	if (!isset($fetch['call'])) {
+		return $call;
+	}
+	return $fetch['call'];
+}
+function toInline(array $prepared) {
+	$results = [];
+	$key = 0;
+	foreach ($prepared as $res) {
+		$namedItems = namedItems($res);
+		$numItems = array_diff($res, $namedItems);
+		$results[$key] = $namedItems;
+		$result = &$results[$key];
+		$result['type'] = $result['type'] ?? 'article';
+		$result['title'] = $result['title'] ?? $numItems[0] ?? 'UNTITLED';
+		$result['input_message_content'] = $result['input_message_content'] ?? ['message_text' => ($numItems[1] ?? null), 'parse_mode' => 'HTML', 'disable_web_page_preview' => false];
+		$result['id'] = $result['id'] ?? $key;
+		$result['reply_markup'] = $result['reply_markup'] ?? $numItems[2] ?? ['inline_keyboard' => []];
+		if (!$result['input_message_content']['message_text']) {
+			unset($result['input_message_content']);
+		}
+		if (isset($result['reply_markup'])) {
+			#$result['reply_markup'] = json_decode($result['reply_markup']);
+		}
+		if (isset($result['disable_web_page_preview'])) {
+			$result['input_message_content']['disable_web_page_preview'] = $result['disable_web_page_preview'];
+			unset($result['disable_web_page_preview']);
+		}
+		$key++;
+	}
+	return array_values($results);
+}
+function namedItems(array $array) {
+	$return = [];
+	foreach ($array as $key => $item) {
+		if (is_string($key)) {
+			$return[$key] = $item;
+		}
+	}
+	return $return;
 }

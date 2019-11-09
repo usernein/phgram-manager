@@ -11,7 +11,7 @@ You can set custom api\_id and api\_hash for MadelineProto in manager/madeline/s
 `manager.php` automatically downloads the requirements when it need them, so don't worry about download and installing anything. phgram-manager uses:
 - [MadelineProto](https://github.com/danog/MadelineProto) (for downloading and uploading files up to 1,5GB and other nice features)
 - [getID3](https://github.com/JamesHeinrich/getID3) (for getting the duration of videos)
-- Files inside phgram.phar (not phgram.phar) from [phgram](https://github.com/usernein/phgram)
+- phgram.phar from [phgram](https://github.com/usernein/phgram)
 
 ## How to use
 ### Commands
@@ -22,7 +22,7 @@ _Note: the parameters described below are following the format: [optional] {mand
  * `/add [name]` - in reply to a file, you'll add it as the specified path or name
  * `/add [path]/` - in reply to a file, you'll add it under the specified path
  * `/add {path} {content}` -- you'll create a new file with the specified content
- * `/get {path}` - download a file
+ * `/get {path}` - download a file ($path is a glob pattern that accepts braces)
  * `/del {path}` - delete a file
  * `/sql {sql query}` - execute a sql query on manager.db and return a JSON with all result lines
  * `/ev {php code}` - execute a php code inside manager.php (with php function eval) and return the contents it echoed
@@ -32,6 +32,9 @@ _Note: the parameters described below are following the format: [optional] {mand
 
 _NOTE: /add (in reply to file), /get, /del and /zip are obsolete, since you can do it all using the keyboard menu of /list._
 To add a file, you can also just send it without any command (i.e. the bot not expecting anything). You'll receive a message listing the paths of files with the same name of the file you sent. Click on the wanted path to write the new contents there.
+
+### Inline mode
+After setting the needed settings in @BotFather, you can search for files and folders in your server. Just type your query and click on the result.
 
 ### Allowing and disallowing users
 `manager.db` is a SQLite3 database with a table `users` using the following schema:
