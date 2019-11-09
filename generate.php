@@ -42,11 +42,8 @@ $files = [
 	'src/run.php'
 ];
 
-$last_update = strtotime($current['date']);
 foreach ($files as $file) {
-	if (filemtime($file) > $last_update) {
-		$update_str .= "\nfiles[] = ".basename($file);
-	}
+	$update_str .= "\nfiles['".basename($file)."'] = ".filemtime($file);
 	$contents = file_get_contents($file);
 	$contents = str_replace(['<?php', '<?', '?>'], '', $contents);
 	$str .= "# breakfile {$file}\n{$contents}\n\n";

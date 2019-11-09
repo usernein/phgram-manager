@@ -9,8 +9,8 @@ require 'phgram.phar';
 use \phgram\{Bot, BotErrorHandler, ArrayObj};
 use function \phgram\{ikb, show};
 Bot::closeConnection();
-define('PHM_VERSION', '1.3.5');
-define('PHM_DATE', '2019-11-09T15:51:47-03:00');
+define('PHM_VERSION', '1.3.6');
+define('PHM_DATE', '2019-11-09T16:16:12-03:00');
 # breakfile src/config.php
 
 $cfg = new stdClass();
@@ -1026,38 +1026,26 @@ Send any documents, as many as you want, and it will be automatically uploaded t
 		}
 		
 		else if ($call == 'upgrade') {
-			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
-			if (($upgrade_date = strtotime($upgrade['date'])) > ($my_date = strtotime(PHM_DATE))) {
-				$upgrade_date = date('d/m/Y H:i:s', $upgrade_date);
-				$my_date = date('d/m/Y H:i:s', $my_date);
-				$my_version = PHM_VERSION;
-				$files_changed = join(', ', $upgrade['files']);
-				$refresh_date = date('d/m/Y H:i:s');
-				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
-🏷 Version: {$upgrade['version']} <i>(current: {$my_version})</i>
-🕚 Date: {$upgrade_date} <i>(current: {$my_date})</i>
-🗂 Files changed: {$files_changed}
-📃 Changelog: {$upgrade['changelog']}
-
-🔄 Message refreshed at {$refresh_date}";
-				$i_ikb = i_ikb([
-					[ ['🔄 Refresh', 'upgrade'] ],
-					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
-				]);
-				$bot->edit($str, ['reply_markup' => $i_ikb]);
-			} else {
-				$bot->edit('✅ Already up-to-date!');
-			}
+			goto upgrade;
 		}
 		
 		else if ($call == 'confirm_upgrade') {
 			$bot->answer_callback('❕ Upgrading...');
+			$msg = $bot->send('❕ Upgrading...');
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
-			foreach ($upgrade['files'] as $file) {
-				copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$file, $file);
+			$my_date_timestamp = strtotime(PHM_DATE);
+			$files_changed = array_filter($upgrade['files'], function ($filemtime) {
+				return $filemtime > $my_date_timestamp;
+			});
+			$str = "\n";
+			foreach ($files_changed as $filename => $filemtime) {
+				$success = $str."\n- \"$filename\" updated!";
+				$fail = $str."\n- Failed to update \"$filename\"";
+				$msg->append(copy('https://raw.githubusercontent.com/usernein/phgram-manager/master/'.$filename, $filename)? $success : $fail);
+				$str = '';
 			}
 			$bot->editMessageReplyMarkup(['chat_id' => $bot->ChatID(), 'message_id' => $bot->MessageID(), 'reply_markup' => i_ikb([])]);
-			$bot->send('✅ Done');
+			$bot->append("\n\n✅ Done");
 		}
 		
 		else if (preg_match('#^add (?<path>.+)#', $call, $match)) {
@@ -1593,24 +1581,28 @@ $changes");
 		}
 		
 		else if ($text == '/upgrade') {
+			upgrade:
 			$upgrade = parse_ini_string(file_get_contents('https://raw.githubusercontent.com/usernein/phgram-manager/master/update/update.ini'));
-			if (($upgrade_date = strtotime($upgrade['date'])) > ($my_date = strtotime(PHM_DATE))) {
+			if (($upgrade_date = strtotime($upgrade['date'])) > ($my_date_timestamp = strtotime(PHM_DATE))) {
 				$upgrade_date = date('d/m/Y H:i:s', $upgrade_date);
-				$my_date = date('d/m/Y H:i:s', $my_date);
+				$my_date = date('d/m/Y H:i:s', $my_date_timestamp);
 				$my_version = PHM_VERSION;
-				$files_changed = join(', ', $upgrade['files']);
+				$files_changed = array_filter($upgrade['files'], function ($filemtime) {
+					return $filemtime > $my_date_timestamp;
+				});
+				$files_changed = join(', ', $files_changed) ?: '---';
 				$str = "🆕 There's a new upgrade available of <a href='https://github.com/usernein/phgram-manager'>phgram-manager</a>!
-🏷 Version: {$upgrade['version']} <i>(current: {$my_version})</i>
-🕚 Date: {$upgrade_date} <i>(current: {$my_date})</i>
-🗂 Files changed: {$files_changed}
-📃 Changelog: {$upgrade['changelog']}";
+🏷 <b>Version</b>: {$upgrade['version']} <i>(current: {$my_version})</i>
+🕚 <b>Date</b>: {$upgrade_date} <i>(current: {$my_date})</i>
+🗂 <b>Files changed</b>: {$files_changed}
+📃 <b>Changelog</b>: {$upgrade['changelog']}";
 				$i_ikb = i_ikb([
 					[ ['🔄 Refresh', 'upgrade'] ],
 					[ ['⏬ Upgrade now', 'confirm_upgrade'] ],
 				]);
-				$bot->send($str, ['reply_markup' => $i_ikb]);
+				$bot->act($str, ['reply_markup' => $i_ikb]);
 			} else {
-				$bot->send('✅ Already up-to-date!');
+				$bot->act('✅ Already up-to-date!');
 			}
 		}
 		
